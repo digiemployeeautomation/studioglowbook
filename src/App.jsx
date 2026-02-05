@@ -386,6 +386,98 @@ function BlockTimeModal({ staffMember, blockedTimes, onAdd, onRemove, onClose })
   )
 }
 
+function ServiceModal({ service, branchId, onSave, onClose }) {
+  const [form, setForm] = useState({
+    name: service?.name || '',
+    category: service?.category || 'Hair',
+    price: service?.price || '',
+    price_max: service?.price_max || '',
+    duration: service?.duration || 60,
+    duration_max: service?.duration_max || '',
+    description: service?.description || '',
+    deposit: service?.deposit || 0,
+    is_active: service?.is_active ?? true,
+  })
+  const [saving, setSaving] = useState(false)
+  const up = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const categories = ['Hair', 'Braids', 'Nails', 'Skincare', 'Spa', 'Makeup', 'Lashes', 'Barber', 'Other']
+
+  const handleSubmit = async () => {
+    if (!form.name || !form.price) return
+    setSaving(true)
+    const data = {
+      ...form,
+      price: parseFloat(form.price),
+      price_max: form.price_max ? parseFloat(form.price_max) : null,
+      duration: parseInt(form.duration),
+      duration_max: form.duration_max ? parseInt(form.duration_max) : null,
+      deposit: parseFloat(form.deposit) || 0,
+      branch_id: branchId,
+    }
+    if (service?.id) {
+      await onSave({ ...data, id: service.id }, 'update')
+    } else {
+      await onSave(data, 'create')
+    }
+    setSaving(false)
+  }
+
+  const iSt = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', background: '#fff', marginBottom: 12, color: C.text }
+
+  return (
+    <Modal title={service ? 'Edit Service' : 'Add New Service'} onClose={onClose}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={{ gridColumn: 'span 2' }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Service Name *</label>
+          <input value={form.name} onChange={e => up('name', e.target.value)} placeholder="e.g. Box Braids" style={iSt} />
+        </div>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Category</label>
+          <select value={form.category} onChange={e => up('category', e.target.value)} style={iSt}>
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Status</label>
+          <select value={form.is_active ? 'active' : 'inactive'} onChange={e => up('is_active', e.target.value === 'active')} style={iSt}>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Price (K) *</label>
+          <input type="number" value={form.price} onChange={e => up('price', e.target.value)} placeholder="150" style={iSt} />
+        </div>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Max Price (optional)</label>
+          <input type="number" value={form.price_max} onChange={e => up('price_max', e.target.value)} placeholder="For price range" style={iSt} />
+        </div>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Duration (mins) *</label>
+          <input type="number" value={form.duration} onChange={e => up('duration', e.target.value)} placeholder="60" style={iSt} />
+        </div>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Max Duration (optional)</label>
+          <input type="number" value={form.duration_max} onChange={e => up('duration_max', e.target.value)} placeholder="For duration range" style={iSt} />
+        </div>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Deposit Required (K)</label>
+          <input type="number" value={form.deposit} onChange={e => up('deposit', e.target.value)} placeholder="0" style={iSt} />
+        </div>
+        <div style={{ gridColumn: 'span 2' }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Description</label>
+          <textarea value={form.description} onChange={e => up('description', e.target.value)} placeholder="Describe the service..." rows={3} style={{ ...iSt, resize: 'vertical' }} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+        <Btn onClick={handleSubmit} disabled={saving || !form.name || !form.price}>{saving ? 'Saving...' : service ? 'Update Service' : 'Add Service'}</Btn>
+        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+      </div>
+    </Modal>
+  )
+}
+
 function WalkinModal({ services, staff, branch, clients, onSave, onClose }) {
   const [form, setForm] = useState({ service_id: '', staff_id: '', client_id: '', walk_in_name: '', client_notes: '' })
   const up = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -564,6 +656,7 @@ export default function App() {
   const [isDemo, setIsDemo] = useState(false)
 
   const [page, setPage] = useState('dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [branchId, setBranchId] = useState(null)
   const [branches, setBranches] = useState([])
   const [ownedBranches, setOwnedBranches] = useState([])
@@ -693,6 +786,21 @@ export default function App() {
       if (error) { showToast(error.message, 'error'); return }
     }
     showToast(id ? 'Staff updated' : 'Staff added'); fetchAll(); setModal(null)
+  }
+  const saveService = async (data, action) => {
+    if (action === 'update') {
+      const { error } = await supabase.from('services').update({ ...data, updated_at: new Date().toISOString() }).eq('id', data.id)
+      if (error) { showToast(error.message, 'error'); return }
+    } else {
+      const { error } = await supabase.from('services').insert(data)
+      if (error) { showToast(error.message, 'error'); return }
+    }
+    showToast(action === 'update' ? 'Service updated' : 'Service added'); fetchAll(); setModal(null)
+  }
+  const toggleServiceActive = async (id, active) => {
+    const { error } = await supabase.from('services').update({ is_active: !active, updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) { showToast(error.message, 'error'); return }
+    showToast('Service status updated'); fetchAll()
   }
   const toggleStaffActive = async (id, active) => {
     const { error } = await supabase.from('staff').update({ is_active: !active, updated_at: new Date().toISOString() }).eq('id', id)
@@ -1010,29 +1118,44 @@ export default function App() {
   // ═════ SERVICES ═════
   function ServicesView() {
     const cats = [...new Set(services.map(s => s.category))]
-    return <div>{cats.map(cat => (
-      <div key={cat} style={{ marginBottom: 28 }}>
-        <h3 style={{ fontSize: 18, fontFamily: 'Fraunces', color: C.text, marginBottom: 12, paddingBottom: 6, borderBottom: `2px solid ${C.accentLight}` }}>{cat}</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-          {services.filter(s => s.category === cat).map(s => (
-            <Card key={s.id} style={{ position: 'relative' }}>
-              {s.image && <img src={s.image} alt="" style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 10, marginBottom: 10 }} />}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <div><div style={{ fontWeight: 700, fontSize: 15, color: C.text, fontFamily: 'Fraunces' }}>{s.name}</div><div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{s.duration}min{s.duration_max ? ` – ${s.duration_max}min` : ''}</div></div>
-                <div style={{ textAlign: 'right' }}><div style={{ fontWeight: 700, fontSize: 17, color: C.accent }}>{fmt(s.price)}</div>{s.price_max && <div style={{ fontSize: 11, color: C.textMuted }}>up to {fmt(s.price_max)}</div>}</div>
-              </div>
-              {s.description && <p style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.4, margin: '8px 0' }}>{s.description}</p>}
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                {s.deposit > 0 && <div style={{ fontSize: 11, fontWeight: 600, color: C.gold, padding: '3px 8px', borderRadius: 8, background: C.goldLight, display: 'inline-block' }}>Deposit: {fmt(s.deposit)}</div>}
-                <ImageUpload currentUrl={s.image} bucket="services" folder={s.id} size={32}
-                  onUpload={url => updateServiceImage(s.id, url)} onRemove={() => updateServiceImage(s.id, null)} />
-              </div>
-              <span style={{ position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: '50%', background: s.is_active ? C.success : C.danger }} />
-            </Card>
-          ))}
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 13, color: C.textMuted }}>{services.length} services across {cats.length} categories</div>
+          <Btn onClick={() => setModal({ type: 'addService' })}>+ Add Service</Btn>
         </div>
+        {cats.length === 0 ? (
+          <Card><Empty icon="✦" msg="No services yet. Add your first service to get started." /></Card>
+        ) : cats.map(cat => (
+          <div key={cat} style={{ marginBottom: 28 }}>
+            <h3 style={{ fontSize: 18, fontFamily: 'Fraunces', color: C.text, marginBottom: 12, paddingBottom: 6, borderBottom: `2px solid ${C.accentLight}` }}>{cat}</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+              {services.filter(s => s.category === cat).map(s => (
+                <Card key={s.id} style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setModal({ type: 'editService', service: s })}>
+                  {s.image && <img src={s.image} alt="" style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 10, marginBottom: 10 }} />}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                    <div><div style={{ fontWeight: 700, fontSize: 15, color: C.text, fontFamily: 'Fraunces' }}>{s.name}</div><div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{s.duration}min{s.duration_max ? ` – ${s.duration_max}min` : ''}</div></div>
+                    <div style={{ textAlign: 'right' }}><div style={{ fontWeight: 700, fontSize: 17, color: C.accent }}>{fmt(s.price)}</div>{s.price_max && <div style={{ fontSize: 11, color: C.textMuted }}>up to {fmt(s.price_max)}</div>}</div>
+                  </div>
+                  {s.description && <p style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.4, margin: '8px 0' }}>{s.description}</p>}
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      {s.deposit > 0 && <div style={{ fontSize: 11, fontWeight: 600, color: C.gold, padding: '3px 8px', borderRadius: 8, background: C.goldLight, display: 'inline-block' }}>Deposit: {fmt(s.deposit)}</div>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                      <ImageUpload currentUrl={s.image} bucket="services" folder={s.id} size={28}
+                        onUpload={url => updateServiceImage(s.id, url)} onRemove={() => updateServiceImage(s.id, null)} />
+                      <button onClick={() => toggleServiceActive(s.id, s.is_active)} style={{ background: s.is_active ? C.successBg : C.dangerBg, border: 'none', color: s.is_active ? C.success : C.danger, borderRadius: 6, padding: '4px 8px', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>{s.is_active ? 'Active' : 'Inactive'}</button>
+                    </div>
+                  </div>
+                  <span style={{ position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: '50%', background: s.is_active ? C.success : C.danger }} />
+                </Card>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
-    ))}</div>
+    )
   }
 
   // ═════ CLIENTS ═════
@@ -1280,6 +1403,8 @@ export default function App() {
     if (type === 'addStaff') return <StaffModal onSave={saveStaff} onClose={() => setModal(null)} />
     if (type === 'editStaff') return <StaffModal staffMember={modal.staffMember} onSave={saveStaff} onClose={() => setModal(null)} />
     if (type === 'editProfile') return <ProfileModal branch={branch} onSave={updateBranch} onClose={() => setModal(null)} />
+    if (type === 'addService') return <ServiceModal branchId={branchId} onSave={saveService} onClose={() => setModal(null)} />
+    if (type === 'editService') return <ServiceModal service={modal.service} branchId={branchId} onSave={saveService} onClose={() => setModal(null)} />
     if (type === 'blockTime') return <BlockTimeModal staffMember={modal.staffMember} blockedTimes={blockedTimes} onAdd={addBlockedTime} onRemove={removeBlockedTime} onClose={() => setModal(null)} />
     if (type === 'walkinBooking') {
       return <WalkinModal services={services} staff={staff} branch={branch} onSave={async (data) => {
@@ -1362,12 +1487,16 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif", color: C.text, background: C.bg }}>
-      <style>{`* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; } ::-webkit-scrollbar { width: 6px; height: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 3px; } button:hover:not(:disabled) { filter: brightness(1.05); } tr:hover { background: ${C.bg}; } @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <style>{`* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; } ::-webkit-scrollbar { width: 6px; height: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 3px; } button:hover:not(:disabled) { filter: brightness(1.05); } tr:hover { background: ${C.bg}; } @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0 !important; } }`}</style>
+
+      {/* Mobile overlay */}
+      {sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 99, display: 'none' }} className="mobile-overlay" />}
+      <style>{`@media (max-width: 768px) { .mobile-overlay { display: block !important; } }`}</style>
 
       {/* Sidebar */}
-      <div style={{ width: 240, background: C.sidebar, padding: '24px 0', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 100 }}>
+      <div className={`sidebar ${sidebarOpen ? 'open' : ''}`} style={{ width: 240, background: C.sidebar, padding: '24px 0', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 100, transition: 'transform 0.3s ease' }}>
         <div style={{ padding: '0 20px', marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => { setPage('profile'); setSidebarOpen(false); }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16 }}>G</div>
             <div><div style={{ fontSize: 17, fontWeight: 700, color: '#fff', fontFamily: 'Fraunces' }}>GlowBook</div><div style={{ fontSize: 10, color: C.textLight, textTransform: 'uppercase', letterSpacing: 1 }}>Studio</div></div>
           </div>
@@ -1381,7 +1510,7 @@ export default function App() {
         <nav style={{ flex: 1 }}>
           {NAV.map(item => {
             const active = page === item.id
-            return <button key={item.id} onClick={() => setPage(item.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', background: active ? 'rgba(196,125,90,0.15)' : 'transparent', border: 'none', borderLeft: active ? `3px solid ${C.accent}` : '3px solid transparent', color: active ? C.accent : 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left', transition: 'all 0.15s' }}><span style={{ fontSize: 16, width: 20, textAlign: 'center' }}>{item.icon}</span>{item.label}</button>
+            return <button key={item.id} onClick={() => { setPage(item.id); setSidebarOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', background: active ? 'rgba(196,125,90,0.15)' : 'transparent', border: 'none', borderLeft: active ? `3px solid ${C.accent}` : '3px solid transparent', color: active ? C.accent : 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left', transition: 'all 0.15s' }}><span style={{ fontSize: 16, width: 20, textAlign: 'center' }}>{item.icon}</span>{item.label}</button>
           })}
         </nav>
         <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
@@ -1394,12 +1523,21 @@ export default function App() {
       </div>
 
       {/* Main */}
-      <div style={{ flex: 1, marginLeft: 240 }}>
+      <div className="main-content" style={{ flex: 1, marginLeft: 240 }}>
         <header style={{ padding: '16px 32px', background: C.white, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 50 }}>
-          <div><h1 style={{ margin: 0, fontSize: 22, fontFamily: 'Fraunces', fontWeight: 600, color: C.text }}>{title}</h1><p style={{ margin: 0, fontSize: 12, color: C.textMuted }}>{branch?.name || 'Loading…'} • {new Date().toLocaleDateString('en-ZM', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {/* Hamburger menu for mobile */}
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 8 }} className="hamburger">
+              <div style={{ width: 20, height: 2, background: C.text, marginBottom: 5, borderRadius: 2 }} />
+              <div style={{ width: 20, height: 2, background: C.text, marginBottom: 5, borderRadius: 2 }} />
+              <div style={{ width: 20, height: 2, background: C.text, borderRadius: 2 }} />
+            </button>
+            <style>{`@media (max-width: 768px) { .hamburger { display: block !important; } }`}</style>
+            <div><h1 style={{ margin: 0, fontSize: 22, fontFamily: 'Fraunces', fontWeight: 600, color: C.text }}>{title}</h1><p style={{ margin: 0, fontSize: 12, color: C.textMuted }}>{branch?.name || 'Loading…'} • {new Date().toLocaleDateString('en-ZM', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
+          </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             {unreplied.length > 0 && <button onClick={() => setPage('reviews')} style={{ padding: '6px 14px', borderRadius: 20, background: C.roseLight, border: 'none', color: C.rose, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>{unreplied.length} unreplied review{unreplied.length > 1 ? 's' : ''}</button>}
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14 }}>{branch?.name?.[0] || 'G'}</div>
+            <div onClick={() => setPage('profile')} style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>{branch?.name?.[0] || 'G'}</div>
           </div>
         </header>
         <main style={{ padding: 32, animation: 'fadeIn 0.3s ease' }}>
