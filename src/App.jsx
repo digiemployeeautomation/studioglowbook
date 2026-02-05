@@ -1,0 +1,1414 @@
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from './supabase'
+
+const DEMO_BRANCH = '0d6d8937-c38f-429d-9067-5219fc2c80cb'
+
+const C = {
+  bg: '#faf7f5', sidebar: '#1a1215', sidebarHover: '#2a1f23',
+  accent: '#c47d5a', accentLight: '#f0d9cc', accentDark: '#a35e3c',
+  gold: '#c9a84c', goldLight: '#f5ecd0',
+  rose: '#d4728c', roseLight: '#fce8ee',
+  text: '#2c1810', textMuted: '#8a7068', textLight: '#b8a89e',
+  white: '#ffffff', card: '#ffffff', border: '#ede5df',
+  success: '#4a9d6e', successBg: '#e8f5ec',
+  warning: '#c9a84c', warningBg: '#fdf6e3',
+  danger: '#c94c4c', dangerBg: '#fce8e8',
+  pending: '#6b8ec4', pendingBg: '#e8eef5',
+}
+
+const NAV = [
+  { id: 'dashboard', label: 'Dashboard', icon: '◐' },
+  { id: 'bookings', label: 'Bookings', icon: '▦' },
+  { id: 'schedule', label: 'Schedule', icon: '◫' },
+  { id: 'staff', label: 'Staff', icon: '◉' },
+  { id: 'services', label: 'Services', icon: '✦' },
+  { id: 'clients', label: 'Clients', icon: '◎' },
+  { id: 'reviews', label: 'Reviews', icon: '★' },
+  { id: 'financials', label: 'Financials', icon: '◈' },
+  { id: 'profile', label: 'Branch Profile', icon: '⌂' },
+]
+
+const SC = {
+  confirmed: { bg: '#e8f5ec', text: '#4a9d6e', label: 'Confirmed' },
+  pending: { bg: '#fdf6e3', text: '#c9a84c', label: 'Pending' },
+  arrived: { bg: '#e0f7fa', text: '#00695c', label: 'Arrived' },
+  in_progress: { bg: '#f3e5f5', text: '#7b1fa2', label: 'In Progress' },
+  completed: { bg: '#e8eef5', text: '#6b8ec4', label: 'Completed' },
+  cancelled: { bg: '#fce8e8', text: '#c94c4c', label: 'Cancelled' },
+  no_show: { bg: '#fce4ec', text: '#880e4f', label: 'No Show' },
+  noshow: { bg: '#fce4ec', text: '#880e4f', label: 'No Show' },
+}
+
+const fmt = (n) => `K ${Number(n || 0).toLocaleString()}`
+const fmtDate = (d) => new Date(d+'T12:00:00').toLocaleDateString('en-ZM', { weekday: 'short', day: 'numeric', month: 'short' })
+const fmtTime = (t) => { const [h, m] = (t || '00:00').split(':'); const hr = parseInt(h); return `${hr > 12 ? hr - 12 : hr || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}` }
+const todayStr = () => new Date().toISOString().split('T')[0]
+const stars = (n) => '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n))
+
+function Badge({ status }) {
+  const s = SC[status] || SC.pending
+  return <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: s.bg, color: s.text, whiteSpace: 'nowrap' }}>{s.label}</span>
+}
+
+function Btn({ children, variant = 'primary', small, onClick, disabled, style = {} }) {
+  const v = { primary: { background: C.accent, color: '#fff', border: 'none' }, secondary: { background: 'transparent', color: C.accent, border: `1.5px solid ${C.accent}` }, danger: { background: C.danger, color: '#fff', border: 'none' }, ghost: { background: 'transparent', color: C.textMuted, border: `1px solid ${C.border}` }, success: { background: C.success, color: '#fff', border: 'none' } }
+  return <button onClick={onClick} disabled={disabled} style={{ ...v[variant], padding: small ? '5px 12px' : '8px 18px', borderRadius: 8, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', opacity: disabled ? 0.5 : 1, transition: 'all 0.15s', whiteSpace: 'nowrap', ...style }}>{children}</button>
+}
+
+function Card({ children, title, action, style = {} }) {
+  return (
+    <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 24, ...style }}>
+      {(title || action) && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>{title && <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: C.text, fontFamily: 'Fraunces' }}>{title}</h3>}{action}</div>}
+      {children}
+    </div>
+  )
+}
+
+function Input({ label, value, onChange, type = 'text', placeholder, textarea, options, style = {} }) {
+  const s = { width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', color: C.text, background: C.bg, outline: 'none', boxSizing: 'border-box', ...style }
+  return (
+    <div style={{ marginBottom: 14 }}>
+      {label && <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</label>}
+      {options ? <select value={value} onChange={e => onChange(e.target.value)} style={s}>{options.map(o => <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>)}</select> : textarea ? <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3} style={{ ...s, resize: 'vertical' }} /> : <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={s} />}
+    </div>
+  )
+}
+
+function Modal({ title, onClose, children, wide }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,18,21,0.5)', backdropFilter: 'blur(4px)' }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: C.white, borderRadius: 16, padding: 28, width: wide ? 600 : 440, maxWidth: '92vw', maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontFamily: 'Fraunces', color: C.text }}>{title}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: C.textMuted, padding: 4 }}>✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function Empty({ icon, msg }) {
+  return <div style={{ textAlign: 'center', padding: '40px 20px', color: C.textMuted }}><div style={{ fontSize: 40, marginBottom: 12, opacity: 0.4 }}>{icon}</div><p style={{ margin: 0, fontSize: 14 }}>{msg}</p></div>
+}
+
+// ─── IMAGE UPLOAD UTILITY ─────────────────────────────────────────
+async function uploadImage(bucket, folder, file) {
+  const ext = file.name.split('.').pop()
+  const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+  const { data, error } = await supabase.storage.from(bucket).upload(path, file, { cacheControl: '3600', upsert: false })
+  if (error) throw error
+  const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path)
+  return publicUrl
+}
+
+function ImageUpload({ currentUrl, onUpload, bucket, folder, size = 80, round = false, label, onRemove, uploading: extUploading }) {
+  const [uploading, setUploading] = useState(false)
+  const [preview, setPreview] = useState(currentUrl || null)
+  const ref = useState(null)
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) { alert('File too large (max 10MB)'); return }
+    // Show preview immediately
+    const reader = new FileReader()
+    reader.onload = (ev) => setPreview(ev.target.result)
+    reader.readAsDataURL(file)
+    // Upload
+    setUploading(true)
+    try {
+      const url = await uploadImage(bucket, folder, file)
+      setPreview(url)
+      onUpload(url)
+    } catch (err) {
+      console.error('Upload error:', err)
+      setPreview(currentUrl || null)
+      alert('Upload failed. Make sure storage bucket "' + bucket + '" exists in Supabase.\n\n' + (err.message || err))
+    }
+    setUploading(false)
+  }
+
+  const isLoading = uploading || extUploading
+  const sz = typeof size === 'number' ? size : parseInt(size)
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      {label && <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase' }}>{label}</label>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: sz, height: sz, borderRadius: round ? '50%' : 12, overflow: 'hidden', background: C.border, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative', border: `2px dashed ${preview ? 'transparent' : C.textLight}`, cursor: 'pointer' }}
+          onClick={() => document.getElementById(`img-up-${bucket}-${folder}`).click()}>
+          {preview ? (
+            <img src={preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <span style={{ fontSize: sz > 60 ? 24 : 16, color: C.textLight }}>+</span>
+          )}
+          {isLoading && (
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 20, height: 20, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            </div>
+          )}
+        </div>
+        <div>
+          <button onClick={() => document.getElementById(`img-up-${bucket}-${folder}`).click()}
+            style={{ padding: '6px 14px', borderRadius: 8, border: `1px solid ${C.border}`, background: 'transparent', color: C.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', marginBottom: 4, display: 'block' }}>
+            {preview ? 'Change Photo' : 'Upload Photo'}
+          </button>
+          {preview && onRemove && (
+            <button onClick={() => { setPreview(null); onRemove(); }}
+              style={{ padding: '4px 14px', borderRadius: 8, border: 'none', background: 'transparent', color: C.danger, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>
+              Remove
+            </button>
+          )}
+        </div>
+        <input id={`img-up-${bucket}-${folder}`} type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+      </div>
+    </div>
+  )
+}
+
+function GalleryUpload({ images = [], onUpdate, bucket, folder }) {
+  const [uploading, setUploading] = useState(false)
+  const [list, setList] = useState(images)
+
+  const handleFiles = async (e) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setUploading(true)
+    const newUrls = []
+    for (const file of files) {
+      try {
+        const url = await uploadImage(bucket, folder, file)
+        newUrls.push(url)
+      } catch (err) {
+        console.error('Gallery upload error:', err)
+        alert('Upload failed for ' + file.name + '. Make sure storage bucket "' + bucket + '" exists.')
+      }
+    }
+    if (newUrls.length) {
+      const updated = [...list, ...newUrls]
+      setList(updated)
+      onUpdate(updated)
+    }
+    setUploading(false)
+  }
+
+  const removeImage = (idx) => {
+    const updated = list.filter((_, i) => i !== idx)
+    setList(updated)
+    onUpdate(updated)
+  }
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase' }}>Gallery Photos</label>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {list.map((img, i) => (
+          <div key={i} style={{ width: 100, height: 72, borderRadius: 10, overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
+            <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <button onClick={() => removeImage(i)} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,.6)', border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          </div>
+        ))}
+        <div onClick={() => document.getElementById(`gallery-up-${folder}`).click()}
+          style={{ width: 100, height: 72, borderRadius: 10, border: `2px dashed ${C.textLight}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+          {uploading ? (
+            <div style={{ width: 20, height: 20, border: '2px solid ' + C.accent, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          ) : (
+            <><span style={{ fontSize: 18, color: C.textLight }}>+</span><span style={{ fontSize: 10, color: C.textLight }}>Add</span></>
+          )}
+        </div>
+      </div>
+      <input id={`gallery-up-${folder}`} type="file" accept="image/*" multiple onChange={handleFiles} style={{ display: 'none' }} />
+    </div>
+  )
+}
+
+// Cancel Modal component
+function CancelModal({ booking, onCancel, onClose }) {
+  const [reason, setReason] = useState('')
+  return (
+    <Modal title="Cancel Booking" onClose={onClose}>
+      <p style={{ fontSize: 14, color: C.textMuted }}>Are you sure you want to cancel this booking?</p>
+      <Input label="Cancellation Reason" value={reason} onChange={setReason} textarea placeholder="Optional reason…" />
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+        <Btn variant="ghost" onClick={onClose}>Keep Booking</Btn>
+        <Btn variant="danger" onClick={() => onCancel(booking.id, reason)}>Confirm Cancel</Btn>
+      </div>
+    </Modal>
+  )
+}
+
+// Reply Review Modal
+function ReplyModal({ review, clients, onReply, onClose }) {
+  const [reply, setReply] = useState('')
+  const client = clients.find(c => c.id === review.client_id)
+  return (
+    <Modal title="Reply to Review" onClose={onClose}>
+      <div style={{ padding: 14, borderRadius: 10, background: C.bg, marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={{ fontWeight: 600, color: C.text }}>{client?.name || 'Client'}</span>
+          <span style={{ color: C.gold }}>{stars(review.rating_overall)}</span>
+        </div>
+        {review.review_text && <p style={{ margin: 0, fontSize: 13, color: C.textMuted }}>{review.review_text}</p>}
+      </div>
+      <Input label="Your Reply" value={reply} onChange={setReply} textarea placeholder="Write a professional reply…" />
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+        <Btn disabled={!reply.trim()} onClick={() => onReply(review.id, reply.trim())}>Post Reply</Btn>
+      </div>
+    </Modal>
+  )
+}
+
+// Staff Modal
+function StaffModal({ staffMember, onSave, onClose }) {
+  const isEdit = !!staffMember
+  const s = staffMember || {}
+  const [form, setForm] = useState({
+    name: s.name || '', role: s.role || '', phone: s.phone || '', email: s.email || '',
+    bio: s.bio || '', years_experience: s.years_experience || 0,
+    start_time: s.start_time || '08:00:00', end_time: s.end_time || '17:00:00',
+    specialties: (s.specialties || []).join(', '),
+    working_days: s.working_days || [1, 2, 3, 4, 5],
+    profile_photo: s.profile_photo || null,
+  })
+  const up = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  const days = [{ v: 1, l: 'Mon' }, { v: 2, l: 'Tue' }, { v: 3, l: 'Wed' }, { v: 4, l: 'Thu' }, { v: 5, l: 'Fri' }, { v: 6, l: 'Sat' }, { v: 7, l: 'Sun' }]
+  const toggleDay = (d) => up('working_days', form.working_days.includes(d) ? form.working_days.filter(x => x !== d) : [...form.working_days, d])
+  const save = () => {
+    const data = { name: form.name, role: form.role, phone: form.phone, email: form.email, bio: form.bio, years_experience: parseInt(form.years_experience) || 0, start_time: form.start_time, end_time: form.end_time, specialties: form.specialties.split(',').map(x => x.trim()).filter(Boolean), working_days: form.working_days, profile_photo: form.profile_photo }
+    onSave(isEdit ? s.id : null, data)
+  }
+  return (
+    <Modal title={isEdit ? 'Edit Staff' : 'Add Staff Member'} onClose={onClose} wide>
+      <ImageUpload currentUrl={form.profile_photo} bucket="avatars" folder="staff" label="Profile Photo" round
+        onUpload={url => up('profile_photo', url)} onRemove={() => up('profile_photo', null)} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+        <Input label="Full Name" value={form.name} onChange={v => up('name', v)} placeholder="e.g. Mary Mwansa" />
+        <Input label="Role" value={form.role} onChange={v => up('role', v)} placeholder="e.g. Senior Stylist" />
+        <Input label="Phone" value={form.phone} onChange={v => up('phone', v)} placeholder="+260 97..." />
+        <Input label="Email" value={form.email} onChange={v => up('email', v)} placeholder="staff@email.com" />
+        <Input label="Years Experience" value={form.years_experience} onChange={v => up('years_experience', v)} type="number" />
+        <Input label="Specialties" value={form.specialties} onChange={v => up('specialties', v)} placeholder="Braids, Natural Hair" />
+        <Input label="Start Time" value={form.start_time} onChange={v => up('start_time', v)} type="time" />
+        <Input label="End Time" value={form.end_time} onChange={v => up('end_time', v)} type="time" />
+      </div>
+      <Input label="Bio" value={form.bio} onChange={v => up('bio', v)} textarea placeholder="Brief description…" />
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase' }}>Working Days</label>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {days.map(d => <button key={d.v} onClick={() => toggleDay(d.v)} style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', border: `1.5px solid ${form.working_days.includes(d.v) ? C.accent : C.border}`, background: form.working_days.includes(d.v) ? C.accentLight : 'transparent', color: form.working_days.includes(d.v) ? C.accent : C.textMuted }}>{d.l}</button>)}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+        <Btn disabled={!form.name.trim()} onClick={save}>{isEdit ? 'Save Changes' : 'Add Staff'}</Btn>
+      </div>
+    </Modal>
+  )
+}
+
+// Profile Modal
+function ProfileModal({ branch, onSave, onClose }) {
+  const [form, setForm] = useState({
+    name: branch?.name || '', location: branch?.location || '', phone: branch?.phone || '', email: branch?.email || '',
+    description: branch?.description || '', open_time: branch?.open_time || '08:00:00', close_time: branch?.close_time || '17:00:00',
+    images: branch?.images || [],
+    cancellation_hours: branch?.cancellation_hours ?? 2, cancellation_fee_percent: branch?.cancellation_fee_percent ?? 0, no_show_fee_percent: branch?.no_show_fee_percent ?? 50,
+  })
+  const up = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  return (
+    <Modal title="Edit Branch Profile" onClose={onClose} wide>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+        <Input label="Branch Name" value={form.name} onChange={v => up('name', v)} />
+        <Input label="Location" value={form.location} onChange={v => up('location', v)} />
+        <Input label="Phone" value={form.phone} onChange={v => up('phone', v)} />
+        <Input label="Email" value={form.email} onChange={v => up('email', v)} />
+        <Input label="Opens At" value={form.open_time} onChange={v => up('open_time', v)} type="time" />
+        <Input label="Closes At" value={form.close_time} onChange={v => up('close_time', v)} type="time" />
+      </div>
+      <Input label="Description" value={form.description} onChange={v => up('description', v)} textarea />
+      <GalleryUpload images={form.images} bucket="branches" folder={branch?.id || 'new'} onUpdate={urls => up('images', urls)} />
+      <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 16, paddingTop: 16 }}>
+        <h4 style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 12 }}>Cancellation Policy</h4>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 16px' }}>
+          <Input label="Free cancel window (hours)" value={form.cancellation_hours} onChange={v => up('cancellation_hours', parseInt(v) || 0)} type="number" />
+          <Input label="Late cancel fee (%)" value={form.cancellation_fee_percent} onChange={v => up('cancellation_fee_percent', parseInt(v) || 0)} type="number" />
+          <Input label="No-show fee (%)" value={form.no_show_fee_percent} onChange={v => up('no_show_fee_percent', parseInt(v) || 0)} type="number" />
+        </div>
+        <p style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>Clients can cancel for free up to {form.cancellation_hours}h before. Late: {form.cancellation_fee_percent}% fee. No-show: {form.no_show_fee_percent}% fee.</p>
+      </div>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={() => onSave(form)}>Save Changes</Btn>
+      </div>
+    </Modal>
+  )
+}
+
+function BlockTimeModal({ staffMember, blockedTimes, onAdd, onRemove, onClose }) {
+  const [bDate, setBDate] = useState(todayStr())
+  const [bStart, setBStart] = useState('')
+  const [bEnd, setBEnd] = useState('')
+  const [bReason, setBReason] = useState('day_off')
+  const iSt = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', background: '#fff', marginBottom: 10 }
+  const myBlocks = (blockedTimes || []).filter(bt => bt.staff_id === staffMember.id)
+  return (
+    <Modal title={`Time Off — ${staffMember.name}`} onClose={onClose}>
+      <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Date</label>
+      <input type="date" value={bDate} onChange={e => setBDate(e.target.value)} min={todayStr()} style={iSt} />
+      <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Time Range (leave empty for full day off)</label>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+        <input type="time" value={bStart} onChange={e => setBStart(e.target.value)} style={{ ...iSt, flex: 1 }} />
+        <input type="time" value={bEnd} onChange={e => setBEnd(e.target.value)} style={{ ...iSt, flex: 1 }} />
+      </div>
+      <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Reason</label>
+      <select value={bReason} onChange={e => setBReason(e.target.value)} style={iSt}>
+        {[['day_off','Day Off'],['leave','Leave'],['personal','Personal'],['training','Training'],['break','Break']].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={() => onAdd(staffMember.id, bDate, bStart || null, bEnd || null, bReason)}>Add Time Off</Btn>
+      </div>
+      {myBlocks.length > 0 && (
+        <div style={{ marginTop: 20, borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+          <h4 style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Upcoming Time Off</h4>
+          {myBlocks.map(bt => (
+            <div key={bt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${C.border}` }}>
+              <span style={{ fontSize: 13 }}>{fmtDate(bt.block_date)} {bt.start_time ? `${fmtTime(bt.start_time)}–${fmtTime(bt.end_time)}` : '(all day)'} — {bt.reason?.replace('_', ' ')}</span>
+              <button onClick={() => onRemove(bt.id)} style={{ background: C.dangerBg, border: 'none', color: C.danger, borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Remove</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+function WalkinModal({ services, staff, branch, clients, onSave, onClose }) {
+  const [form, setForm] = useState({ service_id: '', staff_id: '', client_id: '', walk_in_name: '', client_notes: '' })
+  const up = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const iSt = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', background: '#fff', marginBottom: 10, color: C.text }
+  const sv = services.find(s => s.id === form.service_id)
+  const [clientSearch, setClientSearch] = useState('')
+  const matchedClients = clientSearch.length >= 2 ? clients.filter(c => c.name?.toLowerCase().includes(clientSearch.toLowerCase()) || c.phone?.includes(clientSearch)).slice(0, 5) : []
+
+  return (
+    <Modal title="Walk-in Booking" onClose={onClose}>
+      <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>Create a booking for a client who walked in without an appointment.</p>
+
+      <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Service *</label>
+      <select value={form.service_id} onChange={e => { const s = services.find(x => x.id === e.target.value); up('service_id', e.target.value); if (s) up('total_amount', s.price || 0) }} style={iSt}>
+        <option value="">Select a service…</option>
+        {services.filter(s => s.is_active !== false).map(s => <option key={s.id} value={s.id}>{s.name} — {fmt(s.price)}</option>)}
+      </select>
+
+      <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Stylist</label>
+      <select value={form.staff_id} onChange={e => up('staff_id', e.target.value)} style={iSt}>
+        <option value="">Any available</option>
+        {staff.map(s => <option key={s.id} value={s.id}>{s.name} — {s.role || 'Stylist'}</option>)}
+      </select>
+
+      <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Existing Client (search by name/phone)</label>
+      <input value={clientSearch} onChange={e => { setClientSearch(e.target.value); up('client_id', ''); up('walk_in_name', '') }} placeholder="Type to search…" style={iSt} />
+      {matchedClients.length > 0 && (
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 10, maxHeight: 120, overflowY: 'auto' }}>
+          {matchedClients.map(c => (
+            <div key={c.id} onClick={() => { up('client_id', c.id); up('walk_in_name', c.name); setClientSearch(c.name) }}
+              style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: `1px solid ${C.border}`, fontSize: 13, background: form.client_id === c.id ? C.accentLight : 'transparent' }}>
+              {c.name} — {c.phone || c.email}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!form.client_id && (
+        <>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Or enter walk-in name</label>
+          <input value={form.walk_in_name} onChange={e => up('walk_in_name', e.target.value)} placeholder="Client name" style={iSt} />
+        </>
+      )}
+
+      <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Notes</label>
+      <textarea value={form.client_notes} onChange={e => up('client_notes', e.target.value)} placeholder="Any special requests…" rows={2} style={{ ...iSt, resize: 'vertical' }} />
+
+      {sv && <div style={{ padding: 12, borderRadius: 8, background: C.accentLight, marginBottom: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: C.accent }}>{sv.name}</div>
+        <div style={{ fontSize: 12, color: C.textMuted }}>{sv.duration || 60} min — {fmt(sv.price)}</div>
+      </div>}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={() => { if (!form.service_id) return; onSave({ ...form, duration: sv?.duration || 60, total_amount: sv?.price || 0 }) }} disabled={!form.service_id}>Create Walk-in</Btn>
+      </div>
+    </Modal>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════════════════════
+// ═════ AUTH LOGIN SCREEN ═════
+function StudioLogin({ onAuth, onDemo }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [mode, setMode] = useState('login') // login | confirm | forgot | reset_sent
+
+  const handleLogin = async () => {
+    if (!email || !password) return setError('Please fill in all fields')
+    setSubmitting(true); setError('')
+    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
+    setSubmitting(false)
+    if (err) return setError(err.message === 'Email not confirmed' ? 'Please check your email and confirm your account first.' : err.message)
+    onAuth(data.user)
+  }
+
+  const handleSignup = async () => {
+    if (!email || !password) return setError('Email & password required')
+    if (password.length < 6) return setError('Password must be at least 6 characters')
+    setSubmitting(true); setError('')
+    const { data, error: err } = await supabase.auth.signUp({ email, password, options: { data: { role: 'studio_owner' } } })
+    setSubmitting(false)
+    if (err) return setError(err.message)
+    setMode('confirm')
+  }
+
+  const handleForgot = async () => {
+    if (!email) return setError('Enter your email address')
+    setSubmitting(true); setError('')
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+    setSubmitting(false)
+    if (err) return setError(err.message)
+    setMode('reset_sent')
+  }
+
+  const is = { width: '100%', padding: '13px 16px', borderRadius: 10, border: `1.5px solid ${C.border}`, fontSize: 14, background: '#fff', color: C.text, fontFamily: 'DM Sans', marginBottom: 12, outline: 'none', boxSizing: 'border-box' }
+
+  if (mode === 'confirm' || mode === 'reset_sent') {
+    return (
+      <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ width: 400, textAlign: 'center', padding: 40 }}>
+          <div style={{ fontSize: 56, marginBottom: 16 }}>{mode === 'confirm' ? '📧' : '🔑'}</div>
+          <h2 style={{ fontFamily: 'Fraunces', fontSize: 22, marginBottom: 8 }}>{mode === 'confirm' ? 'Check your email' : 'Reset link sent'}</h2>
+          <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+            {mode === 'confirm' ? <>We sent a confirmation link to <strong>{email}</strong>. Click it to activate, then come back and sign in.</> : <>Check <strong>{email}</strong> for a password reset link.</>}
+          </p>
+          <Btn variant="primary" onClick={() => { setMode('login'); setError('') }}>Go to Login</Btn>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', fontFamily: "'DM Sans', sans-serif" }}>
+      <style>{`* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; } input:focus { border-color: ${C.accent} !important; box-shadow: 0 0 0 3px rgba(196,125,90,0.15); }`}</style>
+      {/* Left panel */}
+      <div style={{ flex: 1, background: `linear-gradient(135deg, ${C.sidebar}, #2a1f23)`, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: 40 }}>
+        <div style={{ width: 56, height: 56, borderRadius: 16, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 24, marginBottom: 20 }}>G</div>
+        <h1 style={{ fontFamily: 'Fraunces', fontSize: 32, color: '#fff', marginBottom: 8 }}>GlowBook Studio</h1>
+        <p style={{ color: 'rgba(255,255,255,.6)', fontSize: 15, textAlign: 'center', maxWidth: 300 }}>Manage your salon bookings, staff, and clients from one dashboard</p>
+      </div>
+      {/* Right panel */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+        <div style={{ width: '100%', maxWidth: 380 }}>
+          <h2 style={{ fontFamily: 'Fraunces', fontSize: 24, marginBottom: 4 }}>{mode === 'forgot' ? 'Reset password' : 'Welcome back'}</h2>
+          <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 28 }}>{mode === 'forgot' ? 'Enter your email for a reset link' : 'Sign in to your salon dashboard'}</p>
+
+          {error && <div style={{ background: '#fce8e8', color: C.danger, padding: '12px 16px', borderRadius: 10, fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{error}</div>}
+
+          <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" type="email" style={is} />
+          {mode !== 'forgot' && <input value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" type="password" style={is}
+            onKeyDown={e => e.key === 'Enter' && handleLogin()} />}
+
+          {mode === 'forgot' ? (
+            <>
+              <button onClick={handleForgot} disabled={submitting} style={{ width: '100%', padding: '13px', borderRadius: 10, border: 'none', background: C.accent, color: '#fff', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', marginBottom: 12, opacity: submitting ? 0.6 : 1 }}>
+                {submitting ? 'Sending…' : 'Send Reset Link'}
+              </button>
+              <button onClick={() => { setMode('login'); setError('') }} style={{ width: '100%', padding: '10px', background: 'none', border: 'none', color: C.accent, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>Back to login</button>
+            </>
+          ) : (
+            <>
+              <button onClick={handleLogin} disabled={submitting} style={{ width: '100%', padding: '13px', borderRadius: 10, border: 'none', background: C.accent, color: '#fff', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', marginBottom: 12, opacity: submitting ? 0.6 : 1 }}>
+                {submitting ? 'Signing in…' : 'Sign In'}
+              </button>
+              <button onClick={() => { setMode('forgot'); setError('') }} style={{ width: '100%', padding: '4px', background: 'none', border: 'none', color: C.textMuted, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans', marginBottom: 8 }}>Forgot password?</button>
+              <button onClick={handleSignup} style={{ width: '100%', padding: '12px', borderRadius: 10, border: `1.5px solid ${C.accent}`, background: 'transparent', color: C.accent, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', marginBottom: 20 }}>
+                Register New Salon
+              </button>
+            </>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 16px' }}>
+            <div style={{ flex: 1, height: 1, background: C.border }} />
+            <span style={{ fontSize: 12, color: C.textMuted }}>OR</span>
+            <div style={{ flex: 1, height: 1, background: C.border }} />
+          </div>
+
+          <button onClick={onDemo} style={{ width: '100%', padding: '12px', borderRadius: 10, border: `1px solid ${C.border}`, background: '#fff', color: C.textMuted, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans' }}>
+            Continue with Demo Account
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function App() {
+  // ── AUTH STATE ──
+  const [authUser, setAuthUser] = useState(null)
+  const [authChecked, setAuthChecked] = useState(false)
+  const [isDemo, setIsDemo] = useState(false)
+
+  const [page, setPage] = useState('dashboard')
+  const [branchId, setBranchId] = useState(null)
+  const [branches, setBranches] = useState([])
+  const [ownedBranches, setOwnedBranches] = useState([])
+  const [branch, setBranch] = useState(null)
+  const [bookings, setBookings] = useState([])
+  const [staff, setStaff] = useState([])
+  const [services, setServices] = useState([])
+  const [clients, setClients] = useState([])
+  const [reviews, setReviews] = useState([])
+  const [blockedTimes, setBlockedTimes] = useState([])
+  const [waitlist, setWaitlist] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [modal, setModal] = useState(null)
+  const [toast, setToast] = useState(null)
+
+  const showToast = useCallback((msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }, [])
+
+  // ── AUTH CHECK ──
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthUser(session?.user || null)
+      setAuthChecked(true)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user || null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // ── FIND OWNED BRANCHES ──
+  useEffect(() => {
+    if (!authChecked) return
+    if (isDemo) {
+      setBranchId(DEMO_BRANCH)
+      return
+    }
+    if (authUser) {
+      supabase.from('branches').select('id, name, owner_email').then(({ data }) => {
+        const owned = (data || []).filter(b => b.owner_email === authUser.email)
+        setOwnedBranches(owned)
+        if (owned.length > 0) setBranchId(owned[0].id)
+        else setBranchId(data?.[0]?.id || DEMO_BRANCH) // fallback
+      })
+    }
+  }, [authChecked, authUser, isDemo])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setAuthUser(null)
+    setIsDemo(false)
+    setBranchId(null)
+    setOwnedBranches([])
+    setPage('dashboard')
+  }
+
+  const fetchAll = useCallback(async () => {
+    if (!branchId) return
+    setLoading(true)
+    try {
+      const [branchRes, bookingRes, staffRes, serviceRes, clientRes, reviewRes, branchesRes, blockedRes, waitlistRes] = await Promise.all([
+        supabase.from('branches').select('*').eq('id', branchId).single(),
+        supabase.from('bookings').select('*').eq('branch_id', branchId).order('booking_date', { ascending: false }),
+        supabase.from('staff').select('*').eq('branch_id', branchId).order('name'),
+        supabase.from('services').select('*').order('category, name'),
+        supabase.from('clients').select('*').order('name'),
+        supabase.from('reviews').select('*').eq('branch_id', branchId).order('created_at', { ascending: false }),
+        supabase.from('branches').select('id, name'),
+        supabase.from('staff_blocked_times').select('*').eq('branch_id', branchId).gte('block_date', todayStr()).order('block_date'),
+        supabase.from('waitlist').select('*').eq('branch_id', branchId).eq('status', 'waiting').order('preferred_date'),
+      ])
+      setBranch(branchRes.data); setBookings(bookingRes.data || []); setStaff(staffRes.data || [])
+      setServices(serviceRes.data || []); setClients(clientRes.data || []); setReviews(reviewRes.data || [])
+      setBranches(branchesRes.data || [])
+      setBlockedTimes(blockedRes.data || []); setWaitlist(waitlistRes.data || [])
+    } catch (e) { console.error(e) }
+    setLoading(false)
+  }, [branchId])
+
+  useEffect(() => { fetchAll() }, [fetchAll])
+
+  // Realtime subscription for new bookings
+  useEffect(() => {
+    if (!branchId) return
+    const channel = supabase.channel('studio-bookings-' + branchId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `branch_id=eq.${branchId}` }, (payload) => {
+        if (payload.eventType === 'INSERT') showToast('🔔 New booking received!');
+        fetchAll();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reviews', filter: `branch_id=eq.${branchId}` }, () => { showToast('📝 New review!'); fetchAll(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'waitlist', filter: `branch_id=eq.${branchId}` }, () => fetchAll())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_blocked_times', filter: `branch_id=eq.${branchId}` }, () => fetchAll())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [branchId, fetchAll])
+
+  const getClient = (id) => clients.find(c => c.id === id)
+  const getStaffMember = (id) => staff.find(s => s.id === id)
+  const getService = (id) => services.find(s => s.id === id)
+  const todayBk = bookings.filter(b => b.booking_date === todayStr())
+  const upcomingBk = bookings.filter(b => b.booking_date >= todayStr() && b.status !== 'cancelled')
+  const completedBk = bookings.filter(b => b.status === 'completed')
+  const todayRev = todayBk.filter(b => b.status === 'completed').reduce((s, b) => s + (b.total_amount || 0), 0)
+  const monthRev = completedBk.filter(b => { const d = new Date(b.booking_date); const n = new Date(); return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear() }).reduce((s, b) => s + (b.total_amount || 0), 0)
+  const avgRating = reviews.length ? (reviews.reduce((s, r) => s + r.rating_overall, 0) / reviews.length).toFixed(1) : '—'
+  const unreplied = reviews.filter(r => !r.response_text)
+
+  // CRUD
+  const updateBooking = async (id, data) => {
+    const { error } = await supabase.from('bookings').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) { showToast(error.message, 'error'); return }
+    showToast('Booking updated'); fetchAll(); setModal(null)
+  }
+  const cancelBooking = async (id, reason) => {
+    await updateBooking(id, { status: 'cancelled', cancelled_at: new Date().toISOString(), cancellation_reason: reason || null, cancelled_by: 'business' })
+  }
+  const updateBranch = async (data) => {
+    const { error } = await supabase.from('branches').update({ ...data, updated_at: new Date().toISOString() }).eq('id', branchId)
+    if (error) { showToast(error.message, 'error'); return }
+    showToast('Profile updated'); fetchAll(); setModal(null)
+  }
+  const saveStaff = async (id, data) => {
+    if (id) {
+      const { error } = await supabase.from('staff').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id)
+      if (error) { showToast(error.message, 'error'); return }
+    } else {
+      const { error } = await supabase.from('staff').insert({ ...data, branch_id: branchId })
+      if (error) { showToast(error.message, 'error'); return }
+    }
+    showToast(id ? 'Staff updated' : 'Staff added'); fetchAll(); setModal(null)
+  }
+  const toggleStaffActive = async (id, active) => {
+    const { error } = await supabase.from('staff').update({ is_active: !active, updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) { showToast(error.message, 'error'); return }
+    showToast('Staff status updated'); fetchAll()
+  }
+  const replyReview = async (id, text) => {
+    const { error } = await supabase.from('reviews').update({ response_text: text, response_date: todayStr(), updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) { showToast(error.message, 'error'); return }
+    showToast('Reply posted'); fetchAll(); setModal(null)
+  }
+  // Blocked times
+  const addBlockedTime = async (staffId, date, startTime, endTime, reason) => {
+    const { error } = await supabase.from('staff_blocked_times').insert({ staff_id: staffId, branch_id: branchId, block_date: date, start_time: startTime || null, end_time: endTime || null, reason: reason || 'day_off' })
+    if (error) { showToast(error.message, 'error'); return }
+    showToast('Time off added'); fetchAll(); setModal(null)
+  }
+  const removeBlockedTime = async (id) => {
+    await supabase.from('staff_blocked_times').delete().eq('id', id)
+    showToast('Time off removed'); fetchAll()
+  }
+  // Service image
+  const updateServiceImage = async (id, url) => {
+    const { error } = await supabase.from('services').update({ image: url, updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) showToast(error.message, 'error')
+    else { showToast('Image updated'); fetchAll() }
+  }
+  // Waitlist
+  const dismissWaitlist = async (id) => {
+    await supabase.from('waitlist').update({ status: 'notified', notified_at: new Date().toISOString() }).eq('id', id)
+    showToast('Client notified'); fetchAll()
+  }
+  // SMS helpers
+  const sendSMSAction = async (type, data = {}) => {
+    try {
+      const { data: result, error } = await supabase.functions.invoke('sms-notify', { body: { type, ...data } })
+      if (error) { showToast('SMS error: ' + error.message, 'error'); return }
+      if (result?.sent) showToast('SMS sent successfully')
+      else if (result?.skipped) showToast('SMS skipped: ' + (result.reason || 'see logs'), 'info')
+      else showToast('SMS failed: ' + (result?.error || 'unknown'), 'error')
+    } catch (e) { showToast('SMS error: ' + e.message, 'error') }
+  }
+  const sendReviewRequest = (bookingId) => sendSMSAction('send_review_request', { booking_id: bookingId })
+
+  // ═════ DASHBOARD ═════
+  function DashboardView() {
+    const todayNoShows = bookings.filter(b => b.booking_date === todayStr() && b.status === 'no_show').length
+    const todayWalkins = bookings.filter(b => b.booking_date === todayStr() && b.is_walk_in).length
+    const pendingCount = todayBk.filter(b => b.status === 'pending').length
+    const stats = [
+      { label: "Today's Bookings", value: todayBk.length, icon: '▦', color: C.accent, sub: pendingCount > 0 ? `${pendingCount} pending` : '' },
+      { label: "Today's Revenue", value: fmt(todayRev), icon: '◈', color: C.gold, sub: `Month: ${fmt(monthRev)}` },
+      { label: 'Walk-ins Today', value: todayWalkins, icon: '🚶', color: C.accent, sub: '' },
+      { label: 'No-shows', value: todayNoShows, icon: '✗', color: todayNoShows > 0 ? C.danger : C.textMuted, sub: unreplied.length > 0 ? `${unreplied.length} unreplied reviews` : '' },
+    ]
+    return (
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+          {stats.map((s, i) => (
+            <div key={i} style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: '20px 22px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: -8, right: -4, fontSize: 52, opacity: 0.06, color: s.color }}>{s.icon}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>{s.label}</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: s.color, fontFamily: 'Fraunces' }}>{s.value}</div>
+              {s.sub && <div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>{s.sub}</div>}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <Card title="Today's Schedule" action={<Btn small variant="ghost" onClick={() => setPage('bookings')}>View All →</Btn>}>
+            {todayBk.length === 0 ? <Empty icon="▦" msg="No bookings today" /> : todayBk.slice(0, 5).map(b => {
+              const cl = getClient(b.client_id), sv = getService(b.service_id), st = getStaffMember(b.staff_id)
+              return (
+                <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 12, background: C.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.accent, fontSize: 13, flexShrink: 0, textAlign: 'center', lineHeight: 1.2 }}>{fmtTime(b.booking_time)}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: C.text }}>{cl?.name || 'Client'}</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>{sv?.name} • {st?.name}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    <Badge status={b.status} />
+                    {b.status === 'pending' && <button onClick={() => updateBooking(b.id, { status: 'confirmed' })} style={{ padding: '2px 8px', borderRadius: 6, border: `1px solid ${C.success}30`, background: '#e8f5ec', color: C.success, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>✓</button>}
+                    {b.status === 'confirmed' && <button onClick={() => updateBooking(b.id, { status: 'arrived' })} style={{ padding: '2px 8px', borderRadius: 6, border: `1px solid #00695c30`, background: '#e0f7fa', color: '#00695c', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>In</button>}
+                    {(b.status === 'arrived' || b.status === 'in_progress') && <button onClick={() => updateBooking(b.id, { status: 'completed', completed_at: new Date().toISOString() })} style={{ padding: '2px 8px', borderRadius: 6, border: `1px solid ${C.success}30`, background: '#e8f5ec', color: C.success, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>Done</button>}
+                  </div>
+                </div>
+              )
+            })}
+          </Card>
+          <Card title="Recent Reviews" action={<Btn small variant="ghost" onClick={() => setPage('reviews')}>View All →</Btn>}>
+            {reviews.length === 0 ? <Empty icon="★" msg="No reviews yet" /> : reviews.slice(0, 4).map(r => {
+              const cl = getClient(r.client_id)
+              return (
+                <div key={r.id} style={{ padding: '12px 0', borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <span style={{ fontWeight: 600, fontSize: 13, color: C.text }}>{cl?.name || 'Client'}</span>
+                    <span style={{ color: C.gold, fontSize: 13 }}>{stars(r.rating_overall)}</span>
+                  </div>
+                  {r.review_text && <p style={{ margin: 0, fontSize: 13, color: C.textMuted, lineHeight: 1.4 }}>{r.review_text.slice(0, 80)}{r.review_text.length > 80 ? '…' : ''}</p>}
+                  {!r.response_text && <Btn small variant="secondary" style={{ marginTop: 6 }} onClick={() => setModal({ type: 'replyReview', review: r })}>Reply</Btn>}
+                </div>
+              )
+            })}
+          </Card>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 20 }}>
+          <Card title="Staff on Duty">
+            {staff.filter(s => s.is_active).map(s => {
+              const dow = new Date().getDay() || 7
+              const on = (s.working_days || []).includes(dow)
+              return (
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: C.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {s.profile_photo ? <img src={s.profile_photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontWeight: 700, color: C.accent }}>{s.name[0]}</span>}
+                  </div>
+                  <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div><div style={{ fontSize: 12, color: C.textMuted }}>{s.role}</div></div>
+                  <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: on ? C.successBg : C.dangerBg, color: on ? C.success : C.danger }}>{on ? 'On Duty' : 'Off'}</span>
+                </div>
+              )
+            })}
+          </Card>
+          <Card title="Quick Stats">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              {[{ l: 'Month Revenue', v: fmt(monthRev), c: C.gold }, { l: 'Total Bookings', v: bookings.length, c: C.accent }, { l: 'Active Staff', v: staff.filter(s => s.is_active).length, c: C.success }, { l: 'Total Reviews', v: reviews.length, c: C.rose }].map((s, i) => (
+                <div key={i} style={{ padding: 16, borderRadius: 10, background: C.bg, textAlign: 'center' }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: s.c, fontFamily: 'Fraunces' }}>{s.v}</div>
+                  <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+        {/* Waitlist */}
+        {waitlist.length > 0 && (
+          <Card title={`Waitlist (${waitlist.length})`} style={{ marginTop: 20 }}>
+            {waitlist.slice(0, 5).map(w => {
+              const cl = getClient(w.client_id), sv = getService(w.service_id), st = getStaffMember(w.staff_id)
+              return (
+                <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: C.roseLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.rose, fontSize: 16 }}>{cl?.name?.[0] || '?'}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{cl?.name || 'Client'}</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>{sv?.name || 'Any'} • {fmtDate(w.preferred_date)} {w.preferred_time ? fmtTime(w.preferred_time) : ''} {st ? `• ${st.name}` : ''}</div>
+                  </div>
+                  <Btn small variant="success" onClick={() => dismissWaitlist(w.id)}>Notify</Btn>
+                </div>
+              )
+            })}
+          </Card>
+        )}
+      </div>
+    )
+  }
+
+  // ═════ BOOKINGS ═════
+  function BookingsView() {
+    const [filter, setFilter] = useState('all')
+    const [search, setSearch] = useState('')
+    const filtered = bookings.filter(b => {
+      if (filter !== 'all' && b.status !== filter) return false
+      if (search) { const cl = getClient(b.client_id); const sv = getService(b.service_id); const q = search.toLowerCase(); return (cl?.name || '').toLowerCase().includes(q) || (sv?.name || '').toLowerCase().includes(q) }
+      return true
+    })
+    return (
+      <div>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+          {['all', 'pending', 'confirmed', 'arrived', 'in_progress', 'completed', 'no_show', 'cancelled'].map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 16px', borderRadius: 20, border: `1.5px solid ${filter === f ? C.accent : C.border}`, background: filter === f ? C.accentLight : 'transparent', color: filter === f ? C.accent : C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>{f === 'all' ? 'All' : (SC[f]?.label || f)}</button>
+          ))}
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search client or service…" style={{ marginLeft: 'auto', padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', width: 200, outline: 'none', color: C.text }} />
+          <Btn small onClick={() => setModal({ type: 'walkinBooking' })} style={{ background: C.accent, color: '#fff' }}>+ Walk-in</Btn>
+        </div>
+        <Card>
+          {filtered.length === 0 ? <Empty icon="▦" msg="No bookings match" /> : (
+            <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1000 }}>
+              <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Date', 'Time', 'Client', 'Service', 'Staff', 'Amount', 'Deposit', 'Notes', 'Status', 'Actions'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8 }}>{h}</th>)}</tr></thead>
+              <tbody>{filtered.map(b => {
+                const cl = getClient(b.client_id), sv = getService(b.service_id), st = getStaffMember(b.staff_id)
+                const dep = sv?.deposit || 0
+                return (
+                  <tr key={b.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td style={{ padding: '12px 8px', fontWeight: 500 }}>{fmtDate(b.booking_date)}</td>
+                    <td style={{ padding: '12px 8px' }}>{fmtTime(b.booking_time)}</td>
+                    <td style={{ padding: '12px 8px', fontWeight: 600, color: C.text }}>{cl?.name || (b.walk_in_name || '—')}{b.is_walk_in && <span style={{ fontSize: 10, color: C.gold, marginLeft: 4 }}>WALK-IN</span>}</td>
+                    <td style={{ padding: '12px 8px' }}>{sv?.name || '—'}</td>
+                    <td style={{ padding: '12px 8px' }}>{st?.name || '—'}</td>
+                    <td style={{ padding: '12px 8px', fontWeight: 600 }}>{fmt(b.total_amount)}{b.discount_amount > 0 && <div style={{ fontSize: 10, color: C.gold }}>-{fmt(b.discount_amount)} pts</div>}</td>
+                    <td style={{ padding: '12px 8px' }}>{b.deposit_paid ? <span style={{ color: C.success, fontWeight: 600, fontSize: 11 }}>✓ Paid</span> : dep > 0 ? <button onClick={() => updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: dep })} style={{ padding: '2px 8px', borderRadius: 4, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', fontSize: 11, color: C.accent, fontFamily: 'DM Sans' }}>Mark Paid</button> : <span style={{ color: C.textLight, fontSize: 11 }}>—</span>}</td>
+                    <td style={{ padding: '12px 8px', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: C.textMuted }} title={b.client_notes || ''}>{b.client_notes || '—'}</td>
+                    <td style={{ padding: '12px 8px' }}><Badge status={b.status} /></td>
+                    <td style={{ padding: '12px 8px' }}>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {b.status === 'pending' && <Btn small variant="success" onClick={() => updateBooking(b.id, { status: 'confirmed' })}>Confirm</Btn>}
+                        {b.status === 'confirmed' && <Btn small onClick={() => updateBooking(b.id, { status: 'arrived' })} style={{ background: '#e0f7fa', color: '#00695c', border: '1px solid #00695c40' }}>Arrived</Btn>}
+                        {b.status === 'arrived' && <Btn small onClick={() => updateBooking(b.id, { status: 'in_progress' })} style={{ background: '#f3e5f5', color: '#7b1fa2', border: '1px solid #7b1fa240' }}>Start</Btn>}
+                        {(b.status === 'arrived' || b.status === 'in_progress') && <Btn small variant="success" onClick={() => updateBooking(b.id, { status: 'completed', completed_at: new Date().toISOString() })}>Done</Btn>}
+                        {(b.status === 'confirmed' || b.status === 'pending') && <>
+                          <Btn small variant="danger" onClick={() => setModal({ type: 'cancelBooking', booking: b })}>Cancel</Btn>
+                          <Btn small onClick={() => { updateBooking(b.id, { status: 'no_show' }); const fee = Math.round((b.total_amount || 0) * (branch?.no_show_fee_percent || 50) / 100); showToast(`No-show marked. Fee: ${fmt(fee)}`) }} style={{ background: '#fce4ec', color: '#880e4f', border: '1px solid #880e4f40', fontSize: 11 }}>No-show</Btn>
+                        </>}
+                        <Btn small variant="ghost" onClick={() => setModal({ type: 'viewBooking', booking: b })}>View</Btn>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}</tbody>
+            </table>
+            </div>
+          )}
+        </Card>
+      </div>
+    )
+  }
+
+  // ═════ SCHEDULE ═════
+  function ScheduleView() {
+    const [selDate, setSelDate] = useState(todayStr())
+    const dayBk = bookings.filter(b => b.booking_date === selDate && b.status !== 'cancelled')
+    const hours = Array.from({ length: 12 }, (_, i) => i + 7)
+    const getWeek = () => {
+      const d = new Date(selDate + 'T12:00:00'); const day = d.getDay() || 7
+      const mon = new Date(d); mon.setDate(d.getDate() - day + 1)
+      return Array.from({ length: 7 }, (_, i) => { const dt = new Date(mon); dt.setDate(mon.getDate() + i); return dt.toISOString().split('T')[0] })
+    }
+    const week = getWeek()
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    return (
+      <div>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 20, justifyContent: 'center' }}>
+          {week.map((d, i) => {
+            const isTdy = d === todayStr(), isSel = d === selDate
+            const cnt = bookings.filter(b => b.booking_date === d && b.status !== 'cancelled').length
+            return (
+              <button key={d} onClick={() => setSelDate(d)} style={{ padding: '10px 16px', borderRadius: 12, border: isSel ? `2px solid ${C.accent}` : `1px solid ${C.border}`, background: isSel ? C.accentLight : isTdy ? C.bg : C.white, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'center', minWidth: 72, transition: 'all 0.15s' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted }}>{dayNames[i]}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: isSel ? C.accent : C.text, fontFamily: 'Fraunces' }}>{new Date(d + 'T12:00:00').getDate()}</div>
+                {cnt > 0 && <div style={{ fontSize: 10, color: C.accent, fontWeight: 700 }}>{cnt} appt{cnt > 1 ? 's' : ''}</div>}
+              </button>
+            )
+          })}
+        </div>
+        <Card title={`Schedule — ${fmtDate(selDate)}`}>
+          {hours.map(h => {
+            const hBk = dayBk.filter(b => parseInt((b.booking_time || '').split(':')[0]) === h)
+            return (
+              <div key={h} style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, minHeight: 56 }}>
+                <div style={{ width: 70, padding: '10px 0', fontSize: 12, fontWeight: 600, color: C.textMuted, flexShrink: 0 }}>{h > 12 ? h - 12 : h}:00 {h >= 12 ? 'PM' : 'AM'}</div>
+                <div style={{ flex: 1, display: 'flex', gap: 8, padding: '6px 0', flexWrap: 'wrap' }}>
+                  {hBk.map(b => {
+                    const cl = getClient(b.client_id), sv = getService(b.service_id), st = getStaffMember(b.staff_id)
+                    const sc = SC[b.status] || SC.pending
+                    return (
+                      <div key={b.id} onClick={() => setModal({ type: 'viewBooking', booking: b })} style={{ padding: '8px 12px', borderRadius: 8, background: sc.bg, borderLeft: `3px solid ${sc.text}`, cursor: 'pointer', flex: '1 1 200px', maxWidth: 300 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: C.text }}>{cl?.name || 'Client'}</div>
+                        <div style={{ fontSize: 11, color: C.textMuted }}>{sv?.name} • {st?.name} • {b.duration}min</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </Card>
+      </div>
+    )
+  }
+
+  // ═════ STAFF ═════
+  function StaffView() {
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}><Btn onClick={() => setModal({ type: 'addStaff' })}>+ Add Staff</Btn></div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+          {staff.map(s => {
+            const dow = new Date().getDay() || 7, on = (s.working_days || []).includes(dow)
+            return (
+              <Card key={s.id}>
+                <div style={{ display: 'flex', gap: 14, marginBottom: 14 }}>
+                  <div style={{ width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: C.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {s.profile_photo ? <img src={s.profile_photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontWeight: 700, color: C.accent, fontSize: 20 }}>{s.name[0]}</span>}
+                  </div>
+                  <div><div style={{ fontWeight: 700, fontSize: 16, color: C.text, fontFamily: 'Fraunces' }}>{s.name}</div><div style={{ fontSize: 13, color: C.textMuted }}>{s.role}</div><span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: on ? C.successBg : C.dangerBg, color: on ? C.success : C.danger }}>{on ? 'On Duty' : 'Off'}</span></div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+                  {[{ l: 'Rating', v: s.rating ? `${s.rating}★` : '—' }, { l: 'Done', v: s.bookings_completed || 0 }, { l: 'Exp', v: `${s.years_experience || 0}yr` }].map((x, i) => (
+                    <div key={i} style={{ textAlign: 'center', padding: 8, borderRadius: 8, background: C.bg }}><div style={{ fontSize: 15, fontWeight: 700, color: C.accent }}>{x.v}</div><div style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase' }}>{x.l}</div></div>
+                  ))}
+                </div>
+                {s.specialties?.length > 0 && <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 12 }}>{s.specialties.map(sp => <span key={sp} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 12, background: C.goldLight, color: C.gold, fontWeight: 500 }}>{sp}</span>)}</div>}
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>{fmtTime(s.start_time)} – {fmtTime(s.end_time)}</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <Btn small variant="secondary" onClick={() => setModal({ type: 'editStaff', staffMember: s })}>Edit</Btn>
+                  <Btn small variant="ghost" onClick={() => setModal({ type: 'blockTime', staffMember: s })}>Time Off</Btn>
+                  <Btn small variant={s.is_active ? 'danger' : 'success'} onClick={() => toggleStaffActive(s.id, s.is_active)}>{s.is_active ? 'Deactivate' : 'Activate'}</Btn>
+                </div>
+                {blockedTimes.filter(bt => bt.staff_id === s.id).length > 0 && (
+                  <div style={{ marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Upcoming Time Off</div>
+                    {blockedTimes.filter(bt => bt.staff_id === s.id).slice(0, 3).map(bt => (
+                      <div key={bt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, padding: '4px 0' }}>
+                        <span style={{ color: C.textMuted }}>{bt.block_date} {bt.start_time ? `${fmtTime(bt.start_time)}–${fmtTime(bt.end_time)}` : '(all day)'}</span>
+                        <button onClick={() => removeBlockedTime(bt.id)} style={{ background: 'none', border: 'none', color: C.danger, fontSize: 14, cursor: 'pointer', padding: '0 4px' }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // ═════ SERVICES ═════
+  function ServicesView() {
+    const cats = [...new Set(services.map(s => s.category))]
+    return <div>{cats.map(cat => (
+      <div key={cat} style={{ marginBottom: 28 }}>
+        <h3 style={{ fontSize: 18, fontFamily: 'Fraunces', color: C.text, marginBottom: 12, paddingBottom: 6, borderBottom: `2px solid ${C.accentLight}` }}>{cat}</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+          {services.filter(s => s.category === cat).map(s => (
+            <Card key={s.id} style={{ position: 'relative' }}>
+              {s.image && <img src={s.image} alt="" style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 10, marginBottom: 10 }} />}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <div><div style={{ fontWeight: 700, fontSize: 15, color: C.text, fontFamily: 'Fraunces' }}>{s.name}</div><div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{s.duration}min{s.duration_max ? ` – ${s.duration_max}min` : ''}</div></div>
+                <div style={{ textAlign: 'right' }}><div style={{ fontWeight: 700, fontSize: 17, color: C.accent }}>{fmt(s.price)}</div>{s.price_max && <div style={{ fontSize: 11, color: C.textMuted }}>up to {fmt(s.price_max)}</div>}</div>
+              </div>
+              {s.description && <p style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.4, margin: '8px 0' }}>{s.description}</p>}
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {s.deposit > 0 && <div style={{ fontSize: 11, fontWeight: 600, color: C.gold, padding: '3px 8px', borderRadius: 8, background: C.goldLight, display: 'inline-block' }}>Deposit: {fmt(s.deposit)}</div>}
+                <ImageUpload currentUrl={s.image} bucket="services" folder={s.id} size={32}
+                  onUpload={url => updateServiceImage(s.id, url)} onRemove={() => updateServiceImage(s.id, null)} />
+              </div>
+              <span style={{ position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: '50%', background: s.is_active ? C.success : C.danger }} />
+            </Card>
+          ))}
+        </div>
+      </div>
+    ))}</div>
+  }
+
+  // ═════ CLIENTS ═════
+  function ClientsView() {
+    const [search, setSearch] = useState('')
+    const filtered = clients.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.phone || '').includes(search) || (c.email || '').includes(search))
+    return (
+      <div>
+        <div style={{ marginBottom: 16 }}><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients…" style={{ padding: '10px 16px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', width: 320, outline: 'none', color: C.text, background: C.white }} /></div>
+        <Card>
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 700 }}>
+            <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Client', 'Phone', 'Bookings', 'Spent', 'GlowPoints', 'Status'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
+            <tbody>{filtered.map(c => (
+              <tr key={c.id} style={{ borderBottom: `1px solid ${C.border}`, cursor: 'pointer' }} onClick={() => setModal({ type: 'viewClient', client: c })}>
+                <td style={{ padding: '12px 8px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={{ width: 34, height: 34, borderRadius: '50%', background: C.roseLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.rose, fontSize: 13 }}>{c.name[0]}</div><div><div style={{ fontWeight: 600, color: C.text }}>{c.name}</div><div style={{ fontSize: 11, color: C.textMuted }}>{c.email}</div></div></div></td>
+                <td style={{ padding: '12px 8px' }}>{c.phone}</td>
+                <td style={{ padding: '12px 8px', fontWeight: 600 }}>{c.total_bookings || 0}</td>
+                <td style={{ padding: '12px 8px', fontWeight: 600, color: C.accent }}>{fmt(c.total_spent || 0)}</td>
+                <td style={{ padding: '12px 8px' }}><span style={{ fontWeight: 700, color: C.gold }}>{c.glow_points || 0}</span> pts</td>
+                <td style={{ padding: '12px 8px' }}><span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: c.is_active ? C.successBg : C.dangerBg, color: c.is_active ? C.success : C.danger }}>{c.is_active ? 'Active' : 'Inactive'}</span></td>
+              </tr>
+            ))}</tbody>
+          </table>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  // ═════ REVIEWS ═════
+  function ReviewsView() {
+    const [filter, setFilter] = useState('all')
+    const filtered = reviews.filter(r => filter === 'unreplied' ? !r.response_text : filter === 'replied' ? !!r.response_text : true)
+    return (
+      <div>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center' }}>
+          {['all', 'unreplied', 'replied'].map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 16px', borderRadius: 20, border: `1.5px solid ${filter === f ? C.rose : C.border}`, background: filter === f ? C.roseLight : 'transparent', color: filter === f ? C.rose : C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', textTransform: 'capitalize' }}>{f}</button>
+          ))}
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}><span style={{ fontSize: 28, fontWeight: 700, color: C.gold, fontFamily: 'Fraunces' }}>{avgRating}</span><div><div style={{ color: C.gold, fontSize: 14 }}>{stars(parseFloat(avgRating) || 0)}</div><div style={{ fontSize: 11, color: C.textMuted }}>{reviews.length} reviews</div></div></div>
+        </div>
+        {filtered.length === 0 ? <Card><Empty icon="★" msg="No reviews match" /></Card> : filtered.map(r => {
+          const cl = getClient(r.client_id), sv = getService(r.service_id), st = getStaffMember(r.staff_id)
+          return (
+            <Card key={r.id} style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                  <div style={{ width: 42, height: 42, borderRadius: '50%', background: C.roseLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.rose }}>{(cl?.name || 'C')[0]}</div>
+                  <div><div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{cl?.name || 'Client'}</div><div style={{ fontSize: 12, color: C.textMuted }}>{sv?.name}{st ? ` • ${st.name}` : ''} • {new Date(r.created_at).toLocaleDateString()}</div></div>
+                </div>
+                <div style={{ color: C.gold, fontSize: 16 }}>{stars(r.rating_overall)}</div>
+              </div>
+              {r.review_text && <p style={{ margin: '12px 0', fontSize: 14, color: C.text, lineHeight: 1.5, paddingLeft: 54 }}>{r.review_text}</p>}
+              {r.response_text ? (
+                <div style={{ marginLeft: 54, padding: '12px 16px', borderRadius: 10, background: C.bg, borderLeft: `3px solid ${C.accent}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, marginBottom: 4 }}>YOUR REPLY • {r.response_date}</div>
+                  <p style={{ margin: 0, fontSize: 13, color: C.text, lineHeight: 1.4 }}>{r.response_text}</p>
+                </div>
+              ) : <div style={{ marginLeft: 54, marginTop: 8 }}><Btn small variant="secondary" onClick={() => setModal({ type: 'replyReview', review: r })}>Reply to Review</Btn></div>}
+            </Card>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // ═════ FINANCIALS ═════
+  function FinancialsView() {
+    const now = new Date()
+    const thisM = completedBk.filter(b => { const d = new Date(b.booking_date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() })
+    const lastM = completedBk.filter(b => { const d = new Date(b.booking_date); const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1); return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear() })
+    const tmRev = thisM.reduce((s, b) => s + (b.total_amount || 0), 0)
+    const lmRev = lastM.reduce((s, b) => s + (b.total_amount || 0), 0)
+    const fees = thisM.reduce((s, b) => s + (b.platform_fee || 0), 0)
+    const net = tmRev - fees
+    const noShows = bookings.filter(b => b.status === 'no_show')
+    const noShowsThisM = noShows.filter(b => { const d = new Date(b.booking_date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() })
+    const noShowFees = noShowsThisM.reduce((s, b) => s + Math.round((b.total_amount || 0) * (branch?.no_show_fee_percent || 50) / 100), 0)
+    const depositsThisM = thisM.filter(b => b.deposit_paid).reduce((s, b) => s + (b.deposit_amount || 0), 0)
+    const growth = lmRev > 0 ? Math.round(((tmRev - lmRev) / lmRev) * 100) : (tmRev > 0 ? 100 : 0)
+
+    // Revenue trend — last 6 months
+    const trendData = Array.from({ length: 6 }, (_, i) => {
+      const m = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
+      const mBk = completedBk.filter(b => { const d = new Date(b.booking_date); return d.getMonth() === m.getMonth() && d.getFullYear() === m.getFullYear() })
+      return { month: m.toLocaleDateString('en-ZM', { month: 'short' }), revenue: mBk.reduce((s, b) => s + (b.total_amount || 0), 0), count: mBk.length }
+    })
+    const maxRev = Math.max(...trendData.map(t => t.revenue), 1)
+
+    const bySvc = {}, byStf = {}
+    completedBk.forEach(b => { const n = getService(b.service_id)?.name || 'Other'; bySvc[n] = (bySvc[n] || 0) + (b.total_amount || 0) })
+    completedBk.forEach(b => { const n = getStaffMember(b.staff_id)?.name || 'Unassigned'; byStf[n] = (byStf[n] || 0) + (b.total_amount || 0) })
+    const bar = (data, color1, color2) => Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, amt]) => {
+      const mx = Math.max(...Object.values(data))
+      return (
+        <div key={name} style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span style={{ fontSize: 13, fontWeight: 500, color: C.text }}>{name}</span><span style={{ fontSize: 13, fontWeight: 700, color: color1 }}>{fmt(amt)}</span></div>
+          <div style={{ height: 6, borderRadius: 3, background: C.bg, overflow: 'hidden' }}><div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${color1}, ${color2})`, width: `${(amt / mx) * 100}%` }} /></div>
+        </div>
+      )
+    })
+    return (
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+          {[
+            { l: 'This Month', v: fmt(tmRev), c: C.gold, s: `${thisM.length} bookings • ${growth >= 0 ? '↑' : '↓'}${Math.abs(growth)}% vs last month` },
+            { l: 'Last Month', v: fmt(lmRev), c: C.textMuted, s: `${lastM.length} bookings` },
+            { l: 'Net Earnings', v: fmt(net), c: C.success, s: `After ${fmt(fees)} in fees` },
+          ].map((s, i) => (
+            <Card key={i}><div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>{s.l}</div><div style={{ fontSize: 26, fontWeight: 700, color: s.c, fontFamily: 'Fraunces' }}>{s.v}</div><div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>{s.s}</div></Card>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 24 }}>
+          {[
+            { l: 'Deposits Collected', v: fmt(depositsThisM), c: C.accent, s: 'This month' },
+            { l: 'No-shows', v: `${noShowsThisM.length}`, c: C.danger, s: `${fmt(noShowFees)} in fees` },
+            { l: 'Avg per Booking', v: fmt(thisM.length ? Math.round(tmRev / thisM.length) : 0), c: C.accent, s: 'This month' },
+          ].map((s, i) => (
+            <Card key={i}><div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>{s.l}</div><div style={{ fontSize: 22, fontWeight: 700, color: s.c, fontFamily: 'Fraunces' }}>{s.v}</div><div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>{s.s}</div></Card>
+          ))}
+        </div>
+
+        {/* Revenue Trend Chart */}
+        <Card title="Revenue Trend (6 Months)" style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 180, padding: '10px 0' }}>
+            {trendData.map((t, i) => {
+              const h = maxRev > 0 ? (t.revenue / maxRev) * 140 : 0
+              const isCurrentMonth = i === trendData.length - 1
+              return (
+                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: isCurrentMonth ? C.accent : C.textMuted }}>{fmt(t.revenue)}</span>
+                  <div style={{ width: '100%', maxWidth: 60, height: Math.max(h, 4), borderRadius: 6, background: isCurrentMonth ? `linear-gradient(180deg, ${C.accent}, ${C.rose})` : `linear-gradient(180deg, ${C.border}, ${C.bg})`, transition: 'height 0.3s' }} />
+                  <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 600 }}>{t.month}</span>
+                  <span style={{ fontSize: 10, color: C.textLight }}>{t.count} bk</span>
+                </div>
+              )
+            })}
+          </div>
+        </Card>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+          <Card title="Revenue by Service">{Object.keys(bySvc).length ? bar(bySvc, C.accent, C.rose) : <Empty icon="◈" msg="No data yet" />}</Card>
+          <Card title="Revenue by Staff">{Object.keys(byStf).length ? bar(byStf, C.gold, C.accent) : <Empty icon="◈" msg="No data yet" />}</Card>
+        </div>
+        <Card title="Recent Transactions" style={{ marginTop: 0 }}>
+          {completedBk.length === 0 ? <Empty icon="◈" msg="No transactions yet" /> : (
+            <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 600 }}>
+              <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Date', 'Client', 'Service', 'Amount', 'Fee', 'Net'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
+              <tbody>{completedBk.slice(0, 10).map(b => {
+                const cl = getClient(b.client_id), sv = getService(b.service_id)
+                return (
+                  <tr key={b.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td style={{ padding: '10px 8px' }}>{fmtDate(b.booking_date)}</td>
+                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>{cl?.name || '—'}</td>
+                    <td style={{ padding: '10px 8px' }}>{sv?.name || '—'}</td>
+                    <td style={{ padding: '10px 8px', fontWeight: 600, color: C.success }}>{fmt(b.total_amount)}</td>
+                    <td style={{ padding: '10px 8px', color: C.danger }}>-{fmt(b.platform_fee || 0)}</td>
+                    <td style={{ padding: '10px 8px', fontWeight: 700 }}>{fmt((b.total_amount || 0) - (b.platform_fee || 0))}</td>
+                  </tr>
+                )
+              })}</tbody>
+            </table>
+            </div>
+          )}
+        </Card>
+      </div>
+    )
+  }
+
+  // ═════ PROFILE ═════
+  function ProfileView() {
+    if (!branch) return null
+    return (
+      <div style={{ maxWidth: 700 }}>
+        <Card>
+          <div style={{ display: 'flex', gap: 20, marginBottom: 24 }}>
+            <div style={{ width: 120, height: 120, borderRadius: 16, overflow: 'hidden', flexShrink: 0, background: C.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {branch.images?.[0] ? <img src={branch.images[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 36, color: C.accent }}>⌂</span>}
+            </div>
+            <div>
+              <h2 style={{ margin: '0 0 6px', fontSize: 24, fontFamily: 'Fraunces', color: C.text }}>{branch.name}</h2>
+              <p style={{ margin: '0 0 4px', fontSize: 14, color: C.textMuted }}>{branch.location}</p>
+              <p style={{ margin: '0 0 4px', fontSize: 13, color: C.textMuted }}>{branch.phone} • {branch.email}</p>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}><span style={{ color: C.gold }}>{stars(branch.rating || 0)}</span><span style={{ fontSize: 13, color: C.textMuted }}>{branch.rating} ({branch.review_count} reviews)</span></div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+            <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Hours</div><div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{fmtTime(branch.open_time)} – {fmtTime(branch.close_time)}</div></div>
+            <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Status</div><div style={{ display: 'flex', gap: 8 }}><span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: branch.is_active ? C.successBg : C.dangerBg, color: branch.is_active ? C.success : C.danger }}>{branch.is_active ? 'Active' : 'Inactive'}</span><span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: C.pendingBg, color: C.pending }}>{branch.approval_status}</span></div></div>
+          </div>
+          {branch.description && <div style={{ marginBottom: 20 }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>About</div><p style={{ margin: 0, fontSize: 14, color: C.text, lineHeight: 1.5 }}>{branch.description}</p></div>}
+          {branch.images?.length > 0 && <div style={{ marginBottom: 20 }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Gallery</div><div style={{ display: 'flex', gap: 10, overflowX: 'auto' }}>{branch.images.map((img, i) => <img key={i} src={img} alt="" style={{ width: 160, height: 110, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />)}</div></div>}
+          <Btn onClick={() => setModal({ type: 'editProfile' })}>Edit Branch Profile</Btn>
+        </Card>
+
+        {/* SMS Settings */}
+        <Card title="SMS Notifications" style={{ marginTop: 20 }}>
+          <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>Send automatic SMS to clients when bookings are confirmed, cancelled, or as reminders.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <div onClick={() => updateBranch({ sms_enabled: !branch.sms_enabled })} style={{ width: 44, height: 24, borderRadius: 12, background: branch.sms_enabled ? C.accent : C.border, position: 'relative', cursor: 'pointer', transition: 'background 0.2s' }}>
+                <div style={{ width: 20, height: 20, borderRadius: 10, background: '#fff', position: 'absolute', top: 2, left: branch.sms_enabled ? 22 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px #00000020' }} />
+              </div>
+              <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{branch.sms_enabled ? 'SMS Enabled' : 'SMS Disabled'}</span>
+            </label>
+          </div>
+          {branch.sms_enabled && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Sender Name</label>
+                <input value={branch.sms_sender_name || 'GlowBook'} onChange={e => updateBranch({ sms_sender_name: e.target.value })} placeholder="GlowBook" maxLength={11} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }} />
+                <span style={{ fontSize: 10, color: C.textLight }}>Max 11 chars, alphanumeric</span>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Reminder Hours Before</label>
+                <input type="number" value={branch.sms_reminder_hours || 24} onChange={e => updateBranch({ sms_reminder_hours: parseInt(e.target.value) || 24 })} min={1} max={72} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }} />
+              </div>
+            </div>
+          )}
+          {branch.sms_enabled && (
+            <div style={{ marginTop: 16, padding: 12, borderRadius: 8, background: C.bg }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>SMS will be sent for:</div>
+              <div style={{ fontSize: 13, color: C.text, lineHeight: 1.8 }}>
+                ✓ Booking confirmed<br />
+                ✓ Booking cancelled<br />
+                ✓ 24h appointment reminder<br />
+                ✓ No-show notification<br />
+                <span style={{ color: C.textMuted }}>Cost: ~K0.17 per SMS (billed via Africa's Talking)</span>
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
+    )
+  }
+
+  // ═════ MODAL ROUTER ═════
+  function ModalRouter() {
+    if (!modal) return null
+    const { type } = modal
+    if (type === 'cancelBooking') return <CancelModal booking={modal.booking} onCancel={cancelBooking} onClose={() => setModal(null)} />
+    if (type === 'replyReview') return <ReplyModal review={modal.review} clients={clients} onReply={replyReview} onClose={() => setModal(null)} />
+    if (type === 'addStaff') return <StaffModal onSave={saveStaff} onClose={() => setModal(null)} />
+    if (type === 'editStaff') return <StaffModal staffMember={modal.staffMember} onSave={saveStaff} onClose={() => setModal(null)} />
+    if (type === 'editProfile') return <ProfileModal branch={branch} onSave={updateBranch} onClose={() => setModal(null)} />
+    if (type === 'blockTime') return <BlockTimeModal staffMember={modal.staffMember} blockedTimes={blockedTimes} onAdd={addBlockedTime} onRemove={removeBlockedTime} onClose={() => setModal(null)} />
+    if (type === 'walkinBooking') {
+      return <WalkinModal services={services} staff={staff} branch={branch} onSave={async (data) => {
+        const { error } = await supabase.from('bookings').insert({
+          branch_id: branch.id, service_id: data.service_id, staff_id: data.staff_id || null,
+          client_id: data.client_id || null, booking_date: todayStr(), booking_time: new Date().toTimeString().slice(0, 5),
+          duration: data.duration || 60, total_amount: data.total_amount || 0,
+          status: 'arrived', is_walk_in: true, walk_in_name: data.walk_in_name || null,
+          client_notes: data.client_notes || null,
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        })
+        if (!error) { showToast('Walk-in booking created! 🚶'); fetchAll(); setModal(null) }
+        else showToast('Error: ' + error.message, 'error')
+      }} clients={clients} onClose={() => setModal(null)} />
+    }
+    if (type === 'viewBooking') {
+      const b = modal.booking, cl = getClient(b.client_id), sv = getService(b.service_id), st = getStaffMember(b.staff_id)
+      return (
+        <Modal title="Booking Details" onClose={() => setModal(null)}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            {[['Date', fmtDate(b.booking_date)], ['Time', fmtTime(b.booking_time)], ['Client', cl?.name || (b.walk_in_name || '—')], ['Service', sv?.name || '—'], ['Staff', st?.name || '—'], ['Duration', `${b.duration} min`], ['Amount', fmt(b.total_amount)], ['Fee', fmt(b.platform_fee)], ['Status', (SC[b.status]?.label || b.status)], ['Deposit', b.deposit_paid ? `Yes — ${fmt(b.deposit_amount)}` : (sv?.deposit > 0 ? `Required: ${fmt(sv.deposit)}` : 'N/A')], ['Points Used', b.points_used > 0 ? `${b.points_used} pts (-${fmt(b.discount_amount)})` : '—'], ['Type', b.is_walk_in ? 'Walk-in' : 'Online']].map(([l, v]) => <div key={l}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>{l}</div><div style={{ fontSize: 14, fontWeight: 500, color: C.text }}>{v}</div></div>)}
+          </div>
+          {b.client_notes && <div style={{ marginTop: 14, padding: 12, borderRadius: 8, background: C.bg }}><strong style={{ fontSize: 11, color: C.textMuted }}>CLIENT NOTES:</strong><p style={{ margin: '4px 0 0', fontSize: 13 }}>{b.client_notes}</p></div>}
+          {b.cancellation_reason && <div style={{ marginTop: 10, padding: 12, borderRadius: 8, background: '#fce4ec' }}><strong style={{ fontSize: 11, color: '#c62828' }}>CANCELLATION REASON:</strong><p style={{ margin: '4px 0 0', fontSize: 13, color: '#c62828' }}>{b.cancellation_reason}</p></div>}
+          <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            {b.status === 'pending' && <Btn variant="success" onClick={() => { updateBooking(b.id, { status: 'confirmed' }); setModal(null) }}>Confirm</Btn>}
+            {b.status === 'confirmed' && <Btn onClick={() => { updateBooking(b.id, { status: 'arrived' }); setModal(null) }} style={{ background: '#e0f7fa', color: '#00695c', border: '1px solid #00695c' }}>Mark Arrived</Btn>}
+            {b.status === 'arrived' && <Btn onClick={() => { updateBooking(b.id, { status: 'in_progress' }); setModal(null) }} style={{ background: '#f3e5f5', color: '#7b1fa2', border: '1px solid #7b1fa2' }}>Start Service</Btn>}
+            {(b.status === 'arrived' || b.status === 'in_progress') && <Btn variant="success" onClick={() => { updateBooking(b.id, { status: 'completed', completed_at: new Date().toISOString() }); setModal(null) }}>Complete</Btn>}
+            {(b.status === 'confirmed' || b.status === 'pending') && <>
+              <Btn onClick={() => { updateBooking(b.id, { status: 'no_show' }); setModal(null); showToast('Marked as no-show') }} style={{ background: '#fce4ec', color: '#880e4f', border: '1px solid #880e4f' }}>No-show</Btn>
+              <Btn variant="danger" onClick={() => { setModal({ type: 'cancelBooking', booking: b }) }}>Cancel</Btn>
+            </>}
+            {!b.deposit_paid && sv?.deposit > 0 && !['cancelled','no_show'].includes(b.status) && <Btn onClick={() => { updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: sv.deposit }); setModal(null); showToast('Deposit marked as paid') }} style={{ background: C.bg, color: C.gold, border: `1px solid ${C.gold}` }}>Mark Deposit Paid</Btn>}
+            {b.status === 'completed' && branch?.sms_enabled && <Btn onClick={() => { sendReviewRequest(b.id); setModal(null) }} style={{ background: C.bg, color: C.accent, border: `1px solid ${C.accent}` }}>📱 Request Review SMS</Btn>}
+          </div>
+        </Modal>
+      )
+    }
+    if (type === 'viewClient') {
+      const c = modal.client, cb = bookings.filter(b => b.client_id === c.id)
+      return (
+        <Modal title="Client Details" onClose={() => setModal(null)} wide>
+          <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
+            <div style={{ width: 60, height: 60, borderRadius: '50%', background: C.roseLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.rose, fontSize: 22 }}>{c.name[0]}</div>
+            <div><h3 style={{ margin: '0 0 4px', fontSize: 18, fontFamily: 'Fraunces', color: C.text }}>{c.name}</h3><div style={{ fontSize: 13, color: C.textMuted }}>{c.phone} • {c.email}</div><div style={{ display: 'flex', gap: 12, marginTop: 8 }}><span style={{ fontSize: 12, fontWeight: 600, color: C.gold }}>✦ {c.glow_points || 0} GlowPoints</span><span style={{ fontSize: 12, color: C.textMuted }}>Spent: {fmt(c.total_spent || 0)}</span></div></div>
+          </div>
+          <h4 style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Booking History</h4>
+          {cb.length === 0 ? <p style={{ fontSize: 13, color: C.textMuted }}>No bookings at your branch.</p> : cb.slice(0, 8).map(b => {
+            const sv = getService(b.service_id)
+            return <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${C.border}` }}><div><span style={{ fontWeight: 600, fontSize: 13 }}>{sv?.name || 'Service'}</span><span style={{ fontSize: 12, color: C.textMuted, marginLeft: 8 }}>{fmtDate(b.booking_date)}</span></div><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><span style={{ fontWeight: 600, fontSize: 13 }}>{fmt(b.total_amount)}</span><Badge status={b.status} /></div></div>
+          })}
+        </Modal>
+      )
+    }
+    return null
+  }
+
+  // ═════ LAYOUT ═════
+  const VIEWS = { dashboard: DashboardView, bookings: BookingsView, schedule: ScheduleView, staff: StaffView, services: ServicesView, clients: ClientsView, reviews: ReviewsView, financials: FinancialsView, profile: ProfileView }
+  const View = VIEWS[page] || DashboardView
+  const title = NAV.find(n => n.id === page)?.label || 'Dashboard'
+
+  // ═══ AUTH GATE ═══
+  if (!authChecked) return (
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ textAlign: 'center', color: C.textMuted }}><div style={{ fontSize: 32, marginBottom: 12 }}>◐</div><div style={{ fontSize: 14 }}>Loading…</div></div>
+    </div>
+  )
+
+  if (!authUser && !isDemo) return (
+    <StudioLogin onAuth={user => setAuthUser(user)} onDemo={() => setIsDemo(true)} />
+  )
+
+  if (!branchId) return (
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ textAlign: 'center', color: C.textMuted }}><div style={{ fontSize: 32, marginBottom: 12 }}>◐</div><div style={{ fontSize: 14 }}>Loading branch…</div></div>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif", color: C.text, background: C.bg }}>
+      <style>{`* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; } ::-webkit-scrollbar { width: 6px; height: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 3px; } button:hover:not(:disabled) { filter: brightness(1.05); } tr:hover { background: ${C.bg}; } @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+
+      {/* Sidebar */}
+      <div style={{ width: 240, background: C.sidebar, padding: '24px 0', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 100 }}>
+        <div style={{ padding: '0 20px', marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16 }}>G</div>
+            <div><div style={{ fontSize: 17, fontWeight: 700, color: '#fff', fontFamily: 'Fraunces' }}>GlowBook</div><div style={{ fontSize: 10, color: C.textLight, textTransform: 'uppercase', letterSpacing: 1 }}>Studio</div></div>
+          </div>
+        </div>
+        <div style={{ padding: '0 12px', marginBottom: 20 }}>
+          <select value={branchId} onChange={e => setBranchId(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: C.sidebarHover, color: '#fff', fontSize: 12, fontFamily: 'DM Sans', cursor: 'pointer', outline: 'none' }}>
+            {(isDemo ? branches : ownedBranches.length ? ownedBranches : branches).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          {isDemo && <div style={{ padding: '6px 12px', marginTop: 8, borderRadius: 6, background: 'rgba(201,168,76,0.15)', fontSize: 10, color: C.gold, fontWeight: 600, textAlign: 'center' }}>DEMO MODE</div>}
+        </div>
+        <nav style={{ flex: 1 }}>
+          {NAV.map(item => {
+            const active = page === item.id
+            return <button key={item.id} onClick={() => setPage(item.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', background: active ? 'rgba(196,125,90,0.15)' : 'transparent', border: 'none', borderLeft: active ? `3px solid ${C.accent}` : '3px solid transparent', color: active ? C.accent : 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left', transition: 'all 0.15s' }}><span style={{ fontSize: 16, width: 20, textAlign: 'center' }}>{item.icon}</span>{item.label}</button>
+          })}
+        </nav>
+        <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          {authUser && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{authUser.email}</div>}
+          <button onClick={handleLogout} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left' }}>
+            {isDemo ? '← Exit Demo' : '← Sign Out'}
+          </button>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 8 }}>GlowBook Studio v1.0</div>
+        </div>
+      </div>
+
+      {/* Main */}
+      <div style={{ flex: 1, marginLeft: 240 }}>
+        <header style={{ padding: '16px 32px', background: C.white, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 50 }}>
+          <div><h1 style={{ margin: 0, fontSize: 22, fontFamily: 'Fraunces', fontWeight: 600, color: C.text }}>{title}</h1><p style={{ margin: 0, fontSize: 12, color: C.textMuted }}>{branch?.name || 'Loading…'} • {new Date().toLocaleDateString('en-ZM', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            {unreplied.length > 0 && <button onClick={() => setPage('reviews')} style={{ padding: '6px 14px', borderRadius: 20, background: C.roseLight, border: 'none', color: C.rose, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>{unreplied.length} unreplied review{unreplied.length > 1 ? 's' : ''}</button>}
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14 }}>{branch?.name?.[0] || 'G'}</div>
+          </div>
+        </header>
+        <main style={{ padding: 32, animation: 'fadeIn 0.3s ease' }}>
+          {loading ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: C.textMuted }}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 12 }}>◐</div><div style={{ fontSize: 14 }}>Loading…</div></div></div> : <View />}
+        </main>
+      </div>
+
+      <ModalRouter />
+      {toast && <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 2000, padding: '12px 20px', borderRadius: 10, background: toast.type === 'error' ? C.danger : C.success, color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', animation: 'slideIn 0.3s ease' }}>{toast.type === 'error' ? '✕ ' : '✓ '}{toast.msg}</div>}
+    </div>
+  )
+}
