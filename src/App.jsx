@@ -3,6 +3,15 @@ import { supabase } from './supabase'
 
 const DEMO_BRANCH = '0d6d8937-c38f-429d-9067-5219fc2c80cb'
 
+function useBreakpoint() {
+  const [bp, setBp] = useState('desktop')
+  useEffect(() => {
+    const check = () => { const w = window.innerWidth; setBp(w >= 1024 ? 'desktop' : w >= 640 ? 'tablet' : 'mobile') }
+    check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check)
+  }, [])
+  return bp
+}
+
 const C = {
   bg: '#faf7f5', sidebar: '#1a1215', sidebarHover: '#2a1f23',
   accent: '#c47d5a', accentLight: '#f0d9cc', accentDark: '#a35e3c',
@@ -649,8 +658,79 @@ function StudioLogin({ onAuth, onDemo }) {
   )
 }
 
+function StudioOnboarding({ authUser, onComplete, onLogout }) {
+  const [form, setForm] = useState({ name: '', location: '', phone: '', open_time: '08:00', close_time: '18:00' })
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleCreate = async () => {
+    if (!form.name.trim()) return setError('Salon name is required')
+    setSubmitting(true); setError('')
+    const { data, error: err } = await supabase.from('branches').insert({
+      name: form.name.trim(),
+      location: form.location.trim() || null,
+      phone: form.phone.trim() || null,
+      open_time: form.open_time,
+      close_time: form.close_time,
+      owner_email: authUser.email,
+      is_active: true,
+      cancellation_hours: 2,
+      cancellation_fee_percent: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }).select().single()
+    setSubmitting(false)
+    if (err) return setError(err.message)
+    onComplete(data)
+  }
+
+  const is = { width: '100%', padding: '13px 16px', borderRadius: 10, border: `1.5px solid ${C.border}`, fontSize: 14, background: '#fff', color: C.text, fontFamily: 'DM Sans', marginBottom: 12, outline: 'none', boxSizing: 'border-box' }
+
+  return (
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif" }}>
+      <style>{`* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; } input:focus { border-color: ${C.accent} !important; box-shadow: 0 0 0 3px rgba(196,125,90,0.15); }`}</style>
+      <div style={{ width: '100%', maxWidth: 440, padding: 32 }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 24, marginBottom: 16 }}>✨</div>
+          <h1 style={{ fontFamily: 'Fraunces', fontSize: 26, fontWeight: 700, marginBottom: 6 }}>Set Up Your Salon</h1>
+          <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6 }}>Welcome! Let's create your salon profile to get started with GlowBook Studio.</p>
+        </div>
+
+        {error && <div style={{ background: '#fce8e8', color: C.danger, padding: '12px 16px', borderRadius: 10, fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{error}</div>}
+
+        <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Salon Name *</label></div>
+        <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Glow Beauty Lounge" style={is} />
+
+        <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Location</label></div>
+        <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="e.g. Kabulonga, Lusaka" style={is} />
+
+        <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Phone</label></div>
+        <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+260 97X XXX XXX" style={is} />
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+          <div>
+            <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Opens</label></div>
+            <input type="time" value={form.open_time} onChange={e => setForm(f => ({ ...f, open_time: e.target.value }))} style={is} />
+          </div>
+          <div>
+            <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Closes</label></div>
+            <input type="time" value={form.close_time} onChange={e => setForm(f => ({ ...f, close_time: e.target.value }))} style={is} />
+          </div>
+        </div>
+
+        <button onClick={handleCreate} disabled={submitting} style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: C.accent, color: '#fff', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', marginBottom: 12, opacity: submitting ? 0.6 : 1, minHeight: 48 }}>
+          {submitting ? 'Creating…' : 'Create Salon ✨'}
+        </button>
+
+        <button onClick={onLogout} style={{ width: '100%', padding: '10px', background: 'none', border: 'none', color: C.textMuted, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans' }}>Sign out</button>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   // ── AUTH STATE ──
+  const bp = useBreakpoint()
   const [authUser, setAuthUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
   const [isDemo, setIsDemo] = useState(false)
@@ -660,6 +740,7 @@ export default function App() {
   const [branchId, setBranchId] = useState(null)
   const [branches, setBranches] = useState([])
   const [ownedBranches, setOwnedBranches] = useState([])
+  const [needsOnboarding, setNeedsOnboarding] = useState(false)
   const [branch, setBranch] = useState(null)
   const [bookings, setBookings] = useState([])
   const [staff, setStaff] = useState([])
@@ -691,14 +772,19 @@ export default function App() {
     if (!authChecked) return
     if (isDemo) {
       setBranchId(DEMO_BRANCH)
+      setNeedsOnboarding(false)
       return
     }
     if (authUser) {
       supabase.from('branches').select('id, name, owner_email').then(({ data }) => {
         const owned = (data || []).filter(b => b.owner_email === authUser.email)
         setOwnedBranches(owned)
-        if (owned.length > 0) setBranchId(owned[0].id)
-        else setBranchId(data?.[0]?.id || DEMO_BRANCH) // fallback
+        if (owned.length > 0) {
+          setBranchId(owned[0].id)
+          setNeedsOnboarding(false)
+        } else {
+          setNeedsOnboarding(true)
+        }
       })
     }
   }, [authChecked, authUser, isDemo])
@@ -709,6 +795,7 @@ export default function App() {
     setIsDemo(false)
     setBranchId(null)
     setOwnedBranches([])
+    setNeedsOnboarding(false)
     setPage('dashboard')
   }
 
@@ -1479,6 +1566,18 @@ export default function App() {
     <StudioLogin onAuth={user => setAuthUser(user)} onDemo={() => setIsDemo(true)} />
   )
 
+  if (needsOnboarding && !isDemo) return (
+    <StudioOnboarding
+      authUser={authUser}
+      onComplete={(branch) => {
+        setOwnedBranches([branch])
+        setBranchId(branch.id)
+        setNeedsOnboarding(false)
+      }}
+      onLogout={handleLogout}
+    />
+  )
+
   if (!branchId) return (
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ textAlign: 'center', color: C.textMuted }}><div style={{ fontSize: 32, marginBottom: 12 }}>◐</div><div style={{ fontSize: 14 }}>Loading branch…</div></div>
@@ -1487,66 +1586,100 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif", color: C.text, background: C.bg }}>
-      <style>{`* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; } ::-webkit-scrollbar { width: 6px; height: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 3px; } button:hover:not(:disabled) { filter: brightness(1.05); } tr:hover { background: ${C.bg}; } @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0 !important; } }`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; font-family: 'DM Sans', system-ui, sans-serif; }
+::-webkit-scrollbar { width: 6px; height: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 3px; }
+button:hover:not(:disabled) { filter: brightness(1.05); } tr:hover { background: ${C.bg}; }
+@keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes drawerIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+.touch-target { min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; }
+`}</style>
 
-      {/* Mobile overlay */}
-      {sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 99, display: 'none' }} className="mobile-overlay" />}
-      <style>{`@media (max-width: 768px) { .mobile-overlay { display: block !important; } }`}</style>
-
-      {/* Sidebar */}
-      <div className={`sidebar ${sidebarOpen ? 'open' : ''}`} style={{ width: 240, background: C.sidebar, padding: '24px 0', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 100, transition: 'transform 0.3s ease' }}>
-        <div style={{ padding: '0 20px', marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => { setPage('profile'); setSidebarOpen(false); }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16 }}>G</div>
-            <div><div style={{ fontSize: 17, fontWeight: 700, color: '#fff', fontFamily: 'Fraunces' }}>GlowBook</div><div style={{ fontSize: 10, color: C.textLight, textTransform: 'uppercase', letterSpacing: 1 }}>Studio</div></div>
+      {/* Mobile/Tablet Drawer Overlay */}
+      {bp !== 'desktop' && sidebarOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1050 }}>
+          <div onClick={() => setSidebarOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }} />
+          <div style={{ position: 'relative', width: 280, maxWidth: '80vw', background: C.sidebar, height: '100%', display: 'flex', flexDirection: 'column', animation: 'drawerIn .25s ease', boxShadow: '4px 0 24px rgba(0,0,0,.2)' }}>
+            <div style={{ padding: '20px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 700 }}>G</div>
+                <div><div style={{ fontSize: 16, fontWeight: 700, color: '#fff', fontFamily: 'Fraunces' }}>GlowBook</div><div style={{ fontSize: 10, color: C.textLight, textTransform: 'uppercase', letterSpacing: 1 }}>Studio</div></div>
+              </div>
+              <button onClick={() => setSidebarOpen(false)} className="touch-target" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.5)', fontSize: 20 }}>✕</button>
+            </div>
+            <div style={{ padding: '0 12px', marginBottom: 12 }}>
+              <select value={branchId} onChange={e => setBranchId(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: C.sidebarHover, color: '#fff', fontSize: 13, fontFamily: 'DM Sans', cursor: 'pointer', outline: 'none', minHeight: 44 }}>
+                {(isDemo ? branches : ownedBranches.length ? ownedBranches : branches).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+              {isDemo && <div style={{ padding: '6px 12px', marginTop: 8, borderRadius: 6, background: 'rgba(201,168,76,0.15)', fontSize: 10, color: C.gold, fontWeight: 600, textAlign: 'center' }}>DEMO MODE</div>}
+            </div>
+            <nav style={{ flex: 1, overflowY: 'auto', padding: '0 8px' }}>
+              {NAV.map(item => <button key={item.id} onClick={() => { setPage(item.id); setSidebarOpen(false) }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: page === item.id ? 'rgba(196,125,90,0.15)' : 'transparent', border: 'none', borderLeft: page === item.id ? `3px solid ${C.accent}` : '3px solid transparent', color: page === item.id ? C.accent : 'rgba(255,255,255,0.55)', fontSize: 15, fontWeight: page === item.id ? 600 : 400, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left', minHeight: 48, borderRadius: 0 }}><span style={{ fontSize: 18, width: 22, textAlign: 'center' }}>{item.icon}</span>{item.label}</button>)}
+            </nav>
+            <div style={{ padding: 16, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              {authUser && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{authUser.email}</div>}
+              <button onClick={handleLogout} style={{ width: '100%', padding: '12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'center', minHeight: 44 }}>{isDemo ? '← Exit Demo' : '← Sign Out'}</button>
+            </div>
           </div>
         </div>
-        <div style={{ padding: '0 12px', marginBottom: 20 }}>
-          <select value={branchId} onChange={e => setBranchId(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: C.sidebarHover, color: '#fff', fontSize: 12, fontFamily: 'DM Sans', cursor: 'pointer', outline: 'none' }}>
-            {(isDemo ? branches : ownedBranches.length ? ownedBranches : branches).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-          {isDemo && <div style={{ padding: '6px 12px', marginTop: 8, borderRadius: 6, background: 'rgba(201,168,76,0.15)', fontSize: 10, color: C.gold, fontWeight: 600, textAlign: 'center' }}>DEMO MODE</div>}
+      )}
+
+      {/* Desktop Sidebar */}
+      {bp === 'desktop' && (
+        <div style={{ width: 240, background: C.sidebar, padding: '24px 0', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 100 }}>
+          <div style={{ padding: '0 20px', marginBottom: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => { setPage('profile'); setSidebarOpen(false) }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16 }}>G</div>
+              <div><div style={{ fontSize: 17, fontWeight: 700, color: '#fff', fontFamily: 'Fraunces' }}>GlowBook</div><div style={{ fontSize: 10, color: C.textLight, textTransform: 'uppercase', letterSpacing: 1 }}>Studio</div></div>
+            </div>
+          </div>
+          <div style={{ padding: '0 12px', marginBottom: 20 }}>
+            <select value={branchId} onChange={e => setBranchId(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: C.sidebarHover, color: '#fff', fontSize: 12, fontFamily: 'DM Sans', cursor: 'pointer', outline: 'none' }}>
+              {(isDemo ? branches : ownedBranches.length ? ownedBranches : branches).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+            {isDemo && <div style={{ padding: '6px 12px', marginTop: 8, borderRadius: 6, background: 'rgba(201,168,76,0.15)', fontSize: 10, color: C.gold, fontWeight: 600, textAlign: 'center' }}>DEMO MODE</div>}
+          </div>
+          <nav style={{ flex: 1 }}>
+            {NAV.map(item => {
+              const active = page === item.id
+              return <button key={item.id} onClick={() => { setPage(item.id); setSidebarOpen(false) }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', background: active ? 'rgba(196,125,90,0.15)' : 'transparent', border: 'none', borderLeft: active ? `3px solid ${C.accent}` : '3px solid transparent', color: active ? C.accent : 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left', transition: 'all 0.15s' }}><span style={{ fontSize: 16, width: 20, textAlign: 'center' }}>{item.icon}</span>{item.label}</button>
+            })}
+          </nav>
+          <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            {authUser && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{authUser.email}</div>}
+            <button onClick={handleLogout} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left' }}>{isDemo ? '← Exit Demo' : '← Sign Out'}</button>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 8 }}>GlowBook Studio v1.0</div>
+          </div>
         </div>
-        <nav style={{ flex: 1 }}>
-          {NAV.map(item => {
-            const active = page === item.id
-            return <button key={item.id} onClick={() => { setPage(item.id); setSidebarOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', background: active ? 'rgba(196,125,90,0.15)' : 'transparent', border: 'none', borderLeft: active ? `3px solid ${C.accent}` : '3px solid transparent', color: active ? C.accent : 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left', transition: 'all 0.15s' }}><span style={{ fontSize: 16, width: 20, textAlign: 'center' }}>{item.icon}</span>{item.label}</button>
-          })}
-        </nav>
-        <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          {authUser && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{authUser.email}</div>}
-          <button onClick={handleLogout} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left' }}>
-            {isDemo ? '← Exit Demo' : '← Sign Out'}
-          </button>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 8 }}>GlowBook Studio v1.0</div>
-        </div>
-      </div>
+      )}
 
       {/* Main */}
-      <div className="main-content" style={{ flex: 1, marginLeft: 240 }}>
-        <header style={{ padding: '16px 32px', background: C.white, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 50 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {/* Hamburger menu for mobile */}
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 8 }} className="hamburger">
-              <div style={{ width: 20, height: 2, background: C.text, marginBottom: 5, borderRadius: 2 }} />
-              <div style={{ width: 20, height: 2, background: C.text, marginBottom: 5, borderRadius: 2 }} />
-              <div style={{ width: 20, height: 2, background: C.text, borderRadius: 2 }} />
-            </button>
-            <style>{`@media (max-width: 768px) { .hamburger { display: block !important; } }`}</style>
-            <div><h1 style={{ margin: 0, fontSize: 22, fontFamily: 'Fraunces', fontWeight: 600, color: C.text }}>{title}</h1><p style={{ margin: 0, fontSize: 12, color: C.textMuted }}>{branch?.name || 'Loading…'} • {new Date().toLocaleDateString('en-ZM', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
+      <div style={{ flex: 1, marginLeft: bp === 'desktop' ? 240 : 0 }}>
+        <header style={{ padding: bp === 'desktop' ? '16px 32px' : '12px 16px', background: C.white, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 50 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: bp === 'desktop' ? 16 : 10 }}>
+            {bp !== 'desktop' && (
+              <button onClick={() => setSidebarOpen(!sidebarOpen)} className="touch-target" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                <div style={{ width: 20, height: 2, background: C.text, marginBottom: 5, borderRadius: 2 }} />
+                <div style={{ width: 20, height: 2, background: C.text, marginBottom: 5, borderRadius: 2 }} />
+                <div style={{ width: 20, height: 2, background: C.text, borderRadius: 2 }} />
+              </button>
+            )}
+            <div><h1 style={{ margin: 0, fontSize: bp === 'desktop' ? 22 : 18, fontFamily: 'Fraunces', fontWeight: 600, color: C.text }}>{title}</h1><p style={{ margin: 0, fontSize: 12, color: C.textMuted, display: bp === 'mobile' ? 'none' : 'block' }}>{branch?.name || 'Loading…'} • {new Date().toLocaleDateString('en-ZM', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            {unreplied.length > 0 && <button onClick={() => setPage('reviews')} style={{ padding: '6px 14px', borderRadius: 20, background: C.roseLight, border: 'none', color: C.rose, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>{unreplied.length} unreplied review{unreplied.length > 1 ? 's' : ''}</button>}
+            {unreplied.length > 0 && <button onClick={() => setPage('reviews')} style={{ padding: '6px 14px', borderRadius: 20, background: C.roseLight, border: 'none', color: C.rose, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', minHeight: 36, display: bp === 'mobile' ? 'none' : 'inline-flex', alignItems: 'center' }}>{unreplied.length} unreplied</button>}
             <div onClick={() => setPage('profile')} style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>{branch?.name?.[0] || 'G'}</div>
           </div>
         </header>
-        <main style={{ padding: 32, animation: 'fadeIn 0.3s ease' }}>
+        <main style={{ padding: bp === 'desktop' ? 32 : bp === 'tablet' ? 24 : 16, animation: 'fadeIn 0.3s ease' }}>
           {loading ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: C.textMuted }}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 12 }}>◐</div><div style={{ fontSize: 14 }}>Loading…</div></div></div> : <View />}
         </main>
       </div>
 
       <ModalRouter />
-      {toast && <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 2000, padding: '12px 20px', borderRadius: 10, background: toast.type === 'error' ? C.danger : C.success, color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', animation: 'slideIn 0.3s ease' }}>{toast.type === 'error' ? '✕ ' : '✓ '}{toast.msg}</div>}
+      {toast && <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 2000, padding: '12px 20px', borderRadius: 10, background: toast.type === 'error' ? C.danger : C.success, color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', animation: 'slideIn 0.3s ease', maxWidth: '90vw' }}>{toast.type === 'error' ? '✕ ' : '✓ '}{toast.msg}</div>}
     </div>
   )
 }
