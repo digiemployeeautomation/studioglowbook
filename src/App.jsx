@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
 
-const DEMO_BRANCH = '0d6d8937-c38f-429d-9067-5219fc2c80cb'
-
 function useBreakpoint() {
   const [bp, setBp] = useState('desktop')
   useEffect(() => {
@@ -10,6 +8,28 @@ function useBreakpoint() {
     check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check)
   }, [])
   return bp
+}
+
+// ── Fuzzy Search ──
+function fuzzyMatch(query, text) {
+  if (!query || !text) return !query;
+  const q = query.toLowerCase().trim(), t = text.toLowerCase();
+  if (t.includes(q)) return true;
+  const qWords = q.split(/\s+/), tWords = t.split(/\s+/);
+  return qWords.every(qw => tWords.some(tw => {
+    if (tw.includes(qw) || qw.includes(tw)) return true;
+    const maxDist = qw.length <= 3 ? 1 : qw.length <= 6 ? 2 : 3;
+    let prev = Array.from({length:tw.length+1},(_,i)=>i);
+    for (let i=1;i<=qw.length;i++){
+      const curr=[i];
+      for(let j=1;j<=tw.length;j++) curr[j]=Math.min(prev[j]+1,curr[j-1]+1,prev[j-1]+(qw[i-1]!==tw[j-1]?1:0));
+      prev=curr;
+    }
+    if(prev[tw.length]<=maxDist) return true;
+    const minPre = Math.min(2, qw.length);
+    if(qw.length>=2 && tw.startsWith(qw.slice(0,minPre))) return true;
+    return false;
+  }));
 }
 
 const C = {
@@ -26,16 +46,56 @@ const C = {
 }
 
 const NAV = [
-  { id: 'dashboard', label: 'Dashboard', icon: '◐' },
-  { id: 'bookings', label: 'Bookings', icon: '▦' },
-  { id: 'schedule', label: 'Schedule', icon: '◫' },
-  { id: 'staff', label: 'Staff', icon: '◉' },
-  { id: 'services', label: 'Services', icon: '✦' },
-  { id: 'clients', label: 'Clients', icon: '◎' },
-  { id: 'reviews', label: 'Reviews', icon: '★' },
-  { id: 'financials', label: 'Financials', icon: '◈' },
-  { id: 'profile', label: 'Branch Profile', icon: '⌂' },
+  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { id: 'bookings', label: 'Bookings', icon: 'calendar' },
+  { id: 'schedule', label: 'Schedule', icon: 'clock' },
+  { id: 'staff', label: 'Staff', icon: 'users' },
+  { id: 'services', label: 'Services', icon: 'scissors' },
+  { id: 'clients', label: 'Clients', icon: 'clients' },
+  { id: 'reviews', label: 'Reviews', icon: 'star' },
+  { id: 'financials', label: 'Financials', icon: 'dollar' },
+  { id: 'profile', label: 'Branch Profile', icon: 'store' },
 ]
+
+const Icon = ({ name, size = 20, color = 'currentColor' }) => {
+  const p = {
+    dashboard:<><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
+    calendar:<><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></>,
+    clock:<><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></>,
+    users:<><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></>,
+    scissors:<><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12"/></>,
+    clients:<><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
+    star:<><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></>,
+    dollar:<><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></>,
+    store:<><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></>,
+    menu:<><path d="M3 12h18M3 6h18M3 18h18"/></>,
+    close:<><path d="M18 6L6 18M6 6l12 12"/></>,
+    search:<><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></>,
+    check:<><path d="M20 6L9 17l-5-5"/></>,
+    plus:<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
+    edit:<><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
+    trash:<><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></>,
+    eye:<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>,
+    walkin:<><path d="M13 4a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM7 21l3-8 2.5 2v6M15.5 13L18 21M10 13L6 8l4-1 3 3"/></>,
+    noshow:<><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></>,
+    bell:<><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></>,
+    back:<><path d="M19 12H5M12 19l-7-7 7-7"/></>,
+    chevR:<><path d="M9 18l6-6-6-6"/></>,
+    chevD:<><path d="M6 9l6 6 6-6"/></>,
+    logout:<><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></>,
+    upload:<><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></>,
+    phone:<><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></>,
+    map:<><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/></>,
+    mail:<><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></>,
+    sparkle:<><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/></>,
+    gift:<><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 010-5C9 3 12 6 12 8M16.5 8a2.5 2.5 0 000-5C15 3 12 6 12 8"/></>,
+    trendUp:<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>,
+    refresh:<><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></>,
+    camera:<><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></>,
+    filter:<><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></>,
+  }
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{p[name]||p.sparkle}</svg>
+}
 
 const SC = {
   confirmed: { bg: '#e8f5ec', text: '#4a9d6e', label: 'Confirmed' },
@@ -90,7 +150,7 @@ function Modal({ title, onClose, children, wide }) {
       <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: C.white, borderRadius: 16, padding: 28, width: wide ? 600 : 440, maxWidth: '92vw', maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontFamily: 'Fraunces', color: C.text }}>{title}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: C.textMuted, padding: 4 }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Icon name="close" size={22} color={C.textMuted} /></button>
         </div>
         {children}
       </div>
@@ -99,7 +159,7 @@ function Modal({ title, onClose, children, wide }) {
 }
 
 function Empty({ icon, msg }) {
-  return <div style={{ textAlign: 'center', padding: '40px 20px', color: C.textMuted }}><div style={{ fontSize: 40, marginBottom: 12, opacity: 0.4 }}>{icon}</div><p style={{ margin: 0, fontSize: 14 }}>{msg}</p></div>
+  return <div style={{ textAlign: 'center', padding: '40px 20px', color: C.textMuted }}><div style={{ marginBottom: 12, opacity: 0.4, display: 'flex', justifyContent: 'center' }}><Icon name={icon} size={40} color={C.textMuted} /></div><p style={{ margin: 0, fontSize: 14 }}>{msg}</p></div>
 }
 
 // ─── IMAGE UPLOAD UTILITY ─────────────────────────────────────────
@@ -324,7 +384,7 @@ function ProfileModal({ branch, onSave, onClose }) {
     name: branch?.name || '', location: branch?.location || '', phone: branch?.phone || '', email: branch?.email || '',
     description: branch?.description || '', open_time: branch?.open_time || '08:00:00', close_time: branch?.close_time || '17:00:00',
     images: branch?.images || [],
-    cancellation_hours: branch?.cancellation_hours ?? 2, cancellation_fee_percent: branch?.cancellation_fee_percent ?? 0, no_show_fee_percent: branch?.no_show_fee_percent ?? 50,
+    cancellation_hours: branch?.cancellation_hours ?? 2, cancellation_fee_percent: branch?.cancellation_fee_percent ?? 0, no_show_fee_percent: branch?.no_show_fee_percent ?? 50, slot_interval: branch?.slot_interval ?? 30,
   })
   const up = (k, v) => setForm(p => ({ ...p, [k]: v }))
   return (
@@ -345,6 +405,7 @@ function ProfileModal({ branch, onSave, onClose }) {
           <Input label="Free cancel window (hours)" value={form.cancellation_hours} onChange={v => up('cancellation_hours', parseInt(v) || 0)} type="number" />
           <Input label="Late cancel fee (%)" value={form.cancellation_fee_percent} onChange={v => up('cancellation_fee_percent', parseInt(v) || 0)} type="number" />
           <Input label="No-show fee (%)" value={form.no_show_fee_percent} onChange={v => up('no_show_fee_percent', parseInt(v) || 0)} type="number" />
+          <Input label="Booking slot interval (minutes)" value={form.slot_interval} onChange={v => up('slot_interval', parseInt(v) || 30)} options={[{value:15,label:'15 min'},{value:20,label:'20 min'},{value:30,label:'30 min'},{value:45,label:'45 min'},{value:60,label:'60 min'}]} />
         </div>
         <p style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>Clients can cancel for free up to {form.cancellation_hours}h before. Late: {form.cancellation_fee_percent}% fee. No-show: {form.no_show_fee_percent}% fee.</p>
       </div>
@@ -493,7 +554,7 @@ function WalkinModal({ services, staff, branch, clients, onSave, onClose }) {
   const iSt = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', background: '#fff', marginBottom: 10, color: C.text }
   const sv = services.find(s => s.id === form.service_id)
   const [clientSearch, setClientSearch] = useState('')
-  const matchedClients = clientSearch.length >= 2 ? clients.filter(c => c.name?.toLowerCase().includes(clientSearch.toLowerCase()) || c.phone?.includes(clientSearch)).slice(0, 5) : []
+  const matchedClients = clientSearch.length >= 2 ? clients.filter(c => fuzzyMatch(clientSearch, c.name) || fuzzyMatch(clientSearch, c.phone) || fuzzyMatch(clientSearch, c.email)).slice(0, 5) : []
 
   return (
     <Modal title="Walk-in Booking" onClose={onClose}>
@@ -551,27 +612,29 @@ function WalkinModal({ services, staff, branch, clients, onSave, onClose }) {
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════════
 // ═════ AUTH LOGIN SCREEN ═════
-function StudioLogin({ onAuth, onDemo }) {
+function StudioLogin({ onAuth }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [mode, setMode] = useState('login') // login | confirm | forgot | reset_sent
+  const [mode, setMode] = useState('login')
+  const bp = useBreakpoint()
 
   const handleLogin = async () => {
     if (!email || !password) return setError('Please fill in all fields')
     setSubmitting(true); setError('')
     const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
     setSubmitting(false)
-    if (err) return setError(err.message === 'Email not confirmed' ? 'Please check your email and confirm your account first.' : err.message)
+    if (err) return setError(err.message === 'Email not confirmed' ? 'Check your email to confirm your account.' : err.message)
     onAuth(data.user)
   }
 
   const handleSignup = async () => {
-    if (!email || !password) return setError('Email & password required')
+    if (!email || !password || !name.trim()) return setError('Name, email & password required')
     if (password.length < 6) return setError('Password must be at least 6 characters')
     setSubmitting(true); setError('')
-    const { data, error: err } = await supabase.auth.signUp({ email, password, options: { data: { role: 'studio_owner' } } })
+    const { data, error: err } = await supabase.auth.signUp({ email, password, options: { data: { name, role: 'studio_owner' } } })
     setSubmitting(false)
     if (err) return setError(err.message)
     setMode('confirm')
@@ -586,80 +649,63 @@ function StudioLogin({ onAuth, onDemo }) {
     setMode('reset_sent')
   }
 
-  const is = { width: '100%', padding: '13px 16px', borderRadius: 10, border: `1.5px solid ${C.border}`, fontSize: 14, background: '#fff', color: C.text, fontFamily: 'DM Sans', marginBottom: 12, outline: 'none', boxSizing: 'border-box' }
-
-  if (mode === 'confirm' || mode === 'reset_sent') {
-    return (
-      <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif" }}>
-        <div style={{ width: 400, textAlign: 'center', padding: 40 }}>
-          <div style={{ fontSize: 56, marginBottom: 16 }}>{mode === 'confirm' ? '📧' : '🔑'}</div>
-          <h2 style={{ fontFamily: 'Fraunces', fontSize: 22, marginBottom: 8 }}>{mode === 'confirm' ? 'Check your email' : 'Reset link sent'}</h2>
-          <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
-            {mode === 'confirm' ? <>We sent a confirmation link to <strong>{email}</strong>. Click it to activate, then come back and sign in.</> : <>Check <strong>{email}</strong> for a password reset link.</>}
-          </p>
-          <Btn variant="primary" onClick={() => { setMode('login'); setError('') }}>Go to Login</Btn>
-        </div>
-      </div>
-    )
-  }
+  const iStyle = { width: '100%', padding: '14px 16px', borderRadius: 12, border: `1.5px solid ${C.border}`, fontSize: 15, background: C.white, color: C.text, fontFamily: 'DM Sans', marginBottom: 12, outline: 'none', boxSizing: 'border-box', minHeight: 48 }
+  const isWide = bp !== 'mobile'
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', fontFamily: "'DM Sans', sans-serif" }}>
-      <style>{`* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; } input:focus { border-color: ${C.accent} !important; box-shadow: 0 0 0 3px rgba(196,125,90,0.15); }`}</style>
-      {/* Left panel */}
-      <div style={{ flex: 1, background: `linear-gradient(135deg, ${C.sidebar}, #2a1f23)`, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: 40 }}>
-        <div style={{ width: 56, height: 56, borderRadius: 16, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 24, marginBottom: 20 }}>G</div>
-        <h1 style={{ fontFamily: 'Fraunces', fontSize: 32, color: '#fff', marginBottom: 8 }}>GlowBook Studio</h1>
-        <p style={{ color: 'rgba(255,255,255,.6)', fontSize: 15, textAlign: 'center', maxWidth: 300 }}>Manage your salon bookings, staff, and clients from one dashboard</p>
-      </div>
-      {/* Right panel */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
-        <div style={{ width: '100%', maxWidth: 380 }}>
-          <h2 style={{ fontFamily: 'Fraunces', fontSize: 24, marginBottom: 4 }}>{mode === 'forgot' ? 'Reset password' : 'Welcome back'}</h2>
-          <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 28 }}>{mode === 'forgot' ? 'Enter your email for a reset link' : 'Sign in to your salon dashboard'}</p>
-
-          {error && <div style={{ background: '#fce8e8', color: C.danger, padding: '12px 16px', borderRadius: 10, fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{error}</div>}
-
-          <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" type="email" style={is} />
-          {mode !== 'forgot' && <input value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" type="password" style={is}
-            onKeyDown={e => e.key === 'Enter' && handleLogin()} />}
-
-          {mode === 'forgot' ? (
-            <>
-              <button onClick={handleForgot} disabled={submitting} style={{ width: '100%', padding: '13px', borderRadius: 10, border: 'none', background: C.accent, color: '#fff', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', marginBottom: 12, opacity: submitting ? 0.6 : 1 }}>
-                {submitting ? 'Sending…' : 'Send Reset Link'}
-              </button>
-              <button onClick={() => { setMode('login'); setError('') }} style={{ width: '100%', padding: '10px', background: 'none', border: 'none', color: C.accent, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>Back to login</button>
-            </>
-          ) : (
-            <>
-              <button onClick={handleLogin} disabled={submitting} style={{ width: '100%', padding: '13px', borderRadius: 10, border: 'none', background: C.accent, color: '#fff', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', marginBottom: 12, opacity: submitting ? 0.6 : 1 }}>
-                {submitting ? 'Signing in…' : 'Sign In'}
-              </button>
-              <button onClick={() => { setMode('forgot'); setError('') }} style={{ width: '100%', padding: '4px', background: 'none', border: 'none', color: C.textMuted, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans', marginBottom: 8 }}>Forgot password?</button>
-              <button onClick={handleSignup} style={{ width: '100%', padding: '12px', borderRadius: 10, border: `1.5px solid ${C.accent}`, background: 'transparent', color: C.accent, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', marginBottom: 20 }}>
-                Register New Salon
-              </button>
-            </>
-          )}
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 16px' }}>
-            <div style={{ flex: 1, height: 1, background: C.border }} />
-            <span style={{ fontSize: 12, color: C.textMuted }}>OR</span>
-            <div style={{ flex: 1, height: 1, background: C.border }} />
-          </div>
-
-          <button onClick={onDemo} style={{ width: '100%', padding: '12px', borderRadius: 10, border: `1px solid ${C.border}`, background: '#fff', color: C.textMuted, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans' }}>
-            Continue with Demo Account
-          </button>
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: isWide ? 'row' : 'column', fontFamily: "'DM Sans', sans-serif" }}>
+      <style>{`* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; } input:focus { border-color: ${C.accent} !important; box-shadow: 0 0 0 3px rgba(196,125,90,0.15); } @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } } .fade-up { animation: fadeUp .5s ease; }`}</style>
+      <div style={{ background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, padding: isWide ? '60px 48px' : '52px 24px 36px', borderRadius: isWide ? 0 : '0 0 32px 32px', textAlign: isWide ? 'left' : 'center', flex: isWide ? '0 0 45%' : 'none', display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: isWide ? '100vh' : 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: isWide ? 'flex-start' : 'center', marginBottom: 16 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="store" size={24} color="#fff" /></div>
         </div>
+        <h1 style={{ fontFamily: 'Fraunces, serif', fontSize: isWide ? 40 : 32, fontWeight: 700, color: '#fff', marginBottom: 8 }}>GlowBook Studio</h1>
+        <p style={{ color: 'rgba(255,255,255,.85)', fontSize: isWide ? 18 : 15, maxWidth: 360, lineHeight: 1.5 }}>Manage your salon bookings, staff & clients from one dashboard</p>
+      </div>
+      <div className="fade-up" style={{ padding: isWide ? '48px 56px' : '24px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: isWide ? 480 : '100%' }}>
+        {mode === 'confirm' ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}><Icon name="mail" size={56} color={C.accent} /></div>
+            <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Check your email</h2>
+            <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>Confirmation link sent to <strong>{email}</strong>. Click it to activate, then come back and sign in.</p>
+            <Btn full variant="primary" onClick={() => { setMode('login'); setError('') }}>Go to Login</Btn>
+          </div>
+        ) : mode === 'reset_sent' ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}><Icon name="check" size={56} color={C.success} /></div>
+            <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Reset link sent</h2>
+            <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 24 }}>Check <strong>{email}</strong> for a password reset link.</p>
+            <Btn full variant="primary" onClick={() => { setMode('login'); setError('') }}>Back to Login</Btn>
+          </div>
+        ) : mode === 'forgot' ? (
+          <>
+            <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Reset password</h2>
+            <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 24 }}>Enter your email for a reset link</p>
+            {error && <div style={{ background: '#fce4ec', color: '#c62828', padding: '12px 16px', borderRadius: 12, fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{error}</div>}
+            <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" type="email" style={iStyle} onKeyDown={e => e.key === 'Enter' && handleForgot()} />
+            <Btn full variant="primary" disabled={submitting} onClick={handleForgot} style={{ marginBottom: 12 }}>{submitting ? 'Sending…' : 'Send Reset Link'}</Btn>
+            <button onClick={() => { setMode('login'); setError('') }} style={{ background: 'none', border: 'none', color: C.accent, fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 8, textAlign: 'center', width: '100%' }}>Back to login</button>
+          </>
+        ) : (
+          <>
+            <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 24, fontWeight: 700, marginBottom: 4 }}>{mode === 'login' ? 'Welcome back' : 'Register your salon'}</h2>
+            <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 24 }}>{mode === 'login' ? 'Sign in to your salon dashboard' : 'Create a studio owner account'}</p>
+            {error && <div style={{ background: '#fce4ec', color: '#c62828', padding: '12px 16px', borderRadius: 12, fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{error}</div>}
+            {mode === 'signup' && <input value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" style={iStyle} />}
+            <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" type="email" style={iStyle} />
+            <input value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" type="password" style={iStyle} onKeyDown={e => e.key === 'Enter' && (mode === 'login' ? handleLogin() : handleSignup())} />
+            <Btn full variant="primary" disabled={submitting} onClick={mode === 'login' ? handleLogin : handleSignup} style={{ marginBottom: 12 }}>{submitting ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}</Btn>
+            {mode === 'login' && <button onClick={() => { setMode('forgot'); setError('') }} style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 13, cursor: 'pointer', padding: 4, marginBottom: 8, textAlign: 'center', width: '100%' }}>Forgot password?</button>}
+            <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }} style={{ background: 'none', border: 'none', color: C.accent, fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 8, textAlign: 'center', width: '100%' }}>{mode === 'login' ? "Don't have an account? Register" : 'Already have an account? Sign in'}</button>
+          </>
+        )}
       </div>
     </div>
   )
 }
 
 function StudioOnboarding({ authUser, onComplete, onLogout }) {
-  const [form, setForm] = useState({ name: '', location: '', phone: '', open_time: '08:00', close_time: '18:00' })
+  const [form, setForm] = useState({ name: '', location: '', phone: '', open_time: '08:00', close_time: '18:00', slot_interval: 30 })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -672,6 +718,7 @@ function StudioOnboarding({ authUser, onComplete, onLogout }) {
       phone: form.phone.trim() || null,
       open_time: form.open_time,
       close_time: form.close_time,
+      slot_interval: form.slot_interval,
       owner_email: authUser.email,
       is_active: true,
       cancellation_hours: 2,
@@ -691,7 +738,7 @@ function StudioOnboarding({ authUser, onComplete, onLogout }) {
       <style>{`* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; } input:focus { border-color: ${C.accent} !important; box-shadow: 0 0 0 3px rgba(196,125,90,0.15); }`}</style>
       <div style={{ width: '100%', maxWidth: 440, padding: 32 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 16, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 24, marginBottom: 16 }}>✨</div>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><Icon name="sparkle" size={28} color="#fff" /></div>
           <h1 style={{ fontFamily: 'Fraunces', fontSize: 26, fontWeight: 700, marginBottom: 6 }}>Set Up Your Salon</h1>
           <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6 }}>Welcome! Let's create your salon profile to get started with GlowBook Studio.</p>
         </div>
@@ -707,7 +754,7 @@ function StudioOnboarding({ authUser, onComplete, onLogout }) {
         <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Phone</label></div>
         <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+260 97X XXX XXX" style={is} />
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Opens</label></div>
             <input type="time" value={form.open_time} onChange={e => setForm(f => ({ ...f, open_time: e.target.value }))} style={is} />
@@ -716,6 +763,12 @@ function StudioOnboarding({ authUser, onComplete, onLogout }) {
             <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Closes</label></div>
             <input type="time" value={form.close_time} onChange={e => setForm(f => ({ ...f, close_time: e.target.value }))} style={is} />
           </div>
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Booking Slot Interval</label></div>
+          <select value={form.slot_interval} onChange={e => setForm(f => ({ ...f, slot_interval: parseInt(e.target.value) }))} style={is}>
+            <option value={15}>15 minutes</option><option value={20}>20 minutes</option><option value={30}>30 minutes</option><option value={45}>45 minutes</option><option value={60}>60 minutes</option>
+          </select>
         </div>
 
         <button onClick={handleCreate} disabled={submitting} style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: C.accent, color: '#fff', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', marginBottom: 12, opacity: submitting ? 0.6 : 1, minHeight: 48 }}>
@@ -733,7 +786,6 @@ export default function App() {
   const bp = useBreakpoint()
   const [authUser, setAuthUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
-  const [isDemo, setIsDemo] = useState(false)
 
   const [page, setPage] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -770,11 +822,6 @@ export default function App() {
   // ── FIND OWNED BRANCHES ──
   useEffect(() => {
     if (!authChecked) return
-    if (isDemo) {
-      setBranchId(DEMO_BRANCH)
-      setNeedsOnboarding(false)
-      return
-    }
     if (authUser) {
       supabase.from('branches').select('id, name, owner_email').then(({ data }) => {
         const owned = (data || []).filter(b => b.owner_email === authUser.email)
@@ -787,12 +834,11 @@ export default function App() {
         }
       })
     }
-  }, [authChecked, authUser, isDemo])
+  }, [authChecked, authUser])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
     setAuthUser(null)
-    setIsDemo(false)
     setBranchId(null)
     setOwnedBranches([])
     setNeedsOnboarding(false)
@@ -938,17 +984,17 @@ export default function App() {
     const todayWalkins = bookings.filter(b => b.booking_date === todayStr() && b.is_walk_in).length
     const pendingCount = todayBk.filter(b => b.status === 'pending').length
     const stats = [
-      { label: "Today's Bookings", value: todayBk.length, icon: '▦', color: C.accent, sub: pendingCount > 0 ? `${pendingCount} pending` : '' },
-      { label: "Today's Revenue", value: fmt(todayRev), icon: '◈', color: C.gold, sub: `Month: ${fmt(monthRev)}` },
-      { label: 'Walk-ins Today', value: todayWalkins, icon: '🚶', color: C.accent, sub: '' },
-      { label: 'No-shows', value: todayNoShows, icon: '✗', color: todayNoShows > 0 ? C.danger : C.textMuted, sub: unreplied.length > 0 ? `${unreplied.length} unreplied reviews` : '' },
+      { label: "Today's Bookings", value: todayBk.length, icon: 'calendar', color: C.accent, sub: pendingCount > 0 ? `${pendingCount} pending` : '' },
+      { label: "Today's Revenue", value: fmt(todayRev), icon: 'dollar', color: C.gold, sub: `Month: ${fmt(monthRev)}` },
+      { label: 'Walk-ins Today', value: todayWalkins, icon: 'walkin', color: C.accent, sub: '' },
+      { label: 'No-shows', value: todayNoShows, icon: 'noshow', color: todayNoShows > 0 ? C.danger : C.textMuted, sub: unreplied.length > 0 ? `${unreplied.length} unreplied reviews` : '' },
     ]
     return (
       <div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
           {stats.map((s, i) => (
             <div key={i} style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: '20px 22px', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: -8, right: -4, fontSize: 52, opacity: 0.06, color: s.color }}>{s.icon}</div>
+              <div style={{ position: 'absolute', top: -8, right: -4, opacity: 0.08 }}><Icon name={s.icon} size={52} color={s.color} /></div>
               <div style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>{s.label}</div>
               <div style={{ fontSize: 28, fontWeight: 700, color: s.color, fontFamily: 'Fraunces' }}>{s.value}</div>
               {s.sub && <div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>{s.sub}</div>}
@@ -957,7 +1003,7 @@ export default function App() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           <Card title="Today's Schedule" action={<Btn small variant="ghost" onClick={() => setPage('bookings')}>View All →</Btn>}>
-            {todayBk.length === 0 ? <Empty icon="▦" msg="No bookings today" /> : todayBk.slice(0, 5).map(b => {
+            {todayBk.length === 0 ? <Empty icon="calendar" msg="No bookings today" /> : todayBk.slice(0, 5).map(b => {
               const cl = getClient(b.client_id), sv = getService(b.service_id), st = getStaffMember(b.staff_id)
               return (
                 <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: `1px solid ${C.border}` }}>
@@ -977,7 +1023,7 @@ export default function App() {
             })}
           </Card>
           <Card title="Recent Reviews" action={<Btn small variant="ghost" onClick={() => setPage('reviews')}>View All →</Btn>}>
-            {reviews.length === 0 ? <Empty icon="★" msg="No reviews yet" /> : reviews.slice(0, 4).map(r => {
+            {reviews.length === 0 ? <Empty icon="star" msg="No reviews yet" /> : reviews.slice(0, 4).map(r => {
               const cl = getClient(r.client_id)
               return (
                 <div key={r.id} style={{ padding: '12px 0', borderBottom: `1px solid ${C.border}` }}>
@@ -1047,7 +1093,7 @@ export default function App() {
     const [search, setSearch] = useState('')
     const filtered = bookings.filter(b => {
       if (filter !== 'all' && b.status !== filter) return false
-      if (search) { const cl = getClient(b.client_id); const sv = getService(b.service_id); const q = search.toLowerCase(); return (cl?.name || '').toLowerCase().includes(q) || (sv?.name || '').toLowerCase().includes(q) }
+      if (search) { const cl = getClient(b.client_id); const sv = getService(b.service_id); return fuzzyMatch(search, cl?.name) || fuzzyMatch(search, sv?.name) || fuzzyMatch(search, b.walk_in_name) }
       return true
     })
     return (
@@ -1060,7 +1106,7 @@ export default function App() {
           <Btn small onClick={() => setModal({ type: 'walkinBooking' })} style={{ background: C.accent, color: '#fff' }}>+ Walk-in</Btn>
         </div>
         <Card>
-          {filtered.length === 0 ? <Empty icon="▦" msg="No bookings match" /> : (
+          {filtered.length === 0 ? <Empty icon="calendar" msg="No bookings match" /> : (
             <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1000 }}>
               <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Date', 'Time', 'Client', 'Service', 'Staff', 'Amount', 'Deposit', 'Notes', 'Status', 'Actions'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8 }}>{h}</th>)}</tr></thead>
@@ -1105,8 +1151,13 @@ export default function App() {
   // ═════ SCHEDULE ═════
   function ScheduleView() {
     const [selDate, setSelDate] = useState(todayStr())
+    const [tab, setTab] = useState('calendar')
+    const [editStaff, setEditStaff] = useState(null)
+    const [blockForm, setBlockForm] = useState({ staff_id: '', block_date: todayStr(), start_time: '', end_time: '', reason: 'day_off' })
     const dayBk = bookings.filter(b => b.booking_date === selDate && b.status !== 'cancelled')
-    const hours = Array.from({ length: 12 }, (_, i) => i + 7)
+    const openH = parseInt((branch?.open_time || '08:00').slice(0, 2))
+    const closeH = parseInt((branch?.close_time || '17:00').slice(0, 2))
+    const hours = Array.from({ length: closeH - openH + 1 }, (_, i) => i + openH)
     const getWeek = () => {
       const d = new Date(selDate + 'T12:00:00'); const day = d.getDay() || 7
       const mon = new Date(d); mon.setDate(d.getDate() - day + 1)
@@ -1114,43 +1165,185 @@ export default function App() {
     }
     const week = getWeek()
     const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    const allDays = [{ v: 1, l: 'Mon' }, { v: 2, l: 'Tue' }, { v: 3, l: 'Wed' }, { v: 4, l: 'Thu' }, { v: 5, l: 'Fri' }, { v: 6, l: 'Sat' }, { v: 7, l: 'Sun' }]
+
+    const saveStaffHours = async (s) => {
+      const { error } = await supabase.from('staff').update({ working_days: editStaff.working_days, start_time: editStaff.start_time, end_time: editStaff.end_time, updated_at: new Date().toISOString() }).eq('id', s.id)
+      if (!error) { showToast('Schedule updated'); setEditStaff(null); fetchAll() } else showToast(error.message, 'error')
+    }
+
+    const addBlock = async () => {
+      if (!blockForm.staff_id || !blockForm.block_date) return showToast('Select staff & date', 'error')
+      await addBlockedTime(blockForm.staff_id, blockForm.block_date, blockForm.start_time || null, blockForm.end_time || null, blockForm.reason)
+      setBlockForm(f => ({ ...f, start_time: '', end_time: '', reason: 'day_off' }))
+    }
+
+    const tabs = [{ id: 'calendar', l: 'Calendar', icon: 'calendar' }, { id: 'hours', l: 'Staff Hours', icon: 'clock' }, { id: 'blocked', l: 'Time Off', icon: 'noshow' }]
+
     return (
       <div>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 20, justifyContent: 'center' }}>
-          {week.map((d, i) => {
-            const isTdy = d === todayStr(), isSel = d === selDate
-            const cnt = bookings.filter(b => b.booking_date === d && b.status !== 'cancelled').length
-            return (
-              <button key={d} onClick={() => setSelDate(d)} style={{ padding: '10px 16px', borderRadius: 12, border: isSel ? `2px solid ${C.accent}` : `1px solid ${C.border}`, background: isSel ? C.accentLight : isTdy ? C.bg : C.white, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'center', minWidth: 72, transition: 'all 0.15s' }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted }}>{dayNames[i]}</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: isSel ? C.accent : C.text, fontFamily: 'Fraunces' }}>{new Date(d + 'T12:00:00').getDate()}</div>
-                {cnt > 0 && <div style={{ fontSize: 10, color: C.accent, fontWeight: 700 }}>{cnt} appt{cnt > 1 ? 's' : ''}</div>}
-              </button>
-            )
-          })}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 10, border: tab === t.id ? `2px solid ${C.accent}` : `1px solid ${C.border}`, background: tab === t.id ? C.accentLight : C.white, color: tab === t.id ? C.accent : C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', minHeight: 44 }}>
+              <Icon name={t.icon} size={16} color={tab === t.id ? C.accent : C.textMuted} />{t.l}
+            </button>
+          ))}
         </div>
-        <Card title={`Schedule — ${fmtDate(selDate)}`}>
-          {hours.map(h => {
-            const hBk = dayBk.filter(b => parseInt((b.booking_time || '').split(':')[0]) === h)
-            return (
-              <div key={h} style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, minHeight: 56 }}>
-                <div style={{ width: 70, padding: '10px 0', fontSize: 12, fontWeight: 600, color: C.textMuted, flexShrink: 0 }}>{h > 12 ? h - 12 : h}:00 {h >= 12 ? 'PM' : 'AM'}</div>
-                <div style={{ flex: 1, display: 'flex', gap: 8, padding: '6px 0', flexWrap: 'wrap' }}>
-                  {hBk.map(b => {
-                    const cl = getClient(b.client_id), sv = getService(b.service_id), st = getStaffMember(b.staff_id)
-                    const sc = SC[b.status] || SC.pending
+
+        {tab === 'calendar' && (
+          <>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 20, justifyContent: 'center', flexWrap: 'wrap' }}>
+              {week.map((d, i) => {
+                const isTdy = d === todayStr(), isSel = d === selDate
+                const cnt = bookings.filter(b => b.booking_date === d && b.status !== 'cancelled').length
+                return (
+                  <button key={d} onClick={() => setSelDate(d)} style={{ padding: bp === 'mobile' ? '8px 10px' : '10px 16px', borderRadius: 12, border: isSel ? `2px solid ${C.accent}` : `1px solid ${C.border}`, background: isSel ? C.accentLight : isTdy ? C.bg : C.white, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'center', minWidth: bp === 'mobile' ? 44 : 72, transition: 'all 0.15s' }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted }}>{dayNames[i]}</div>
+                    <div style={{ fontSize: bp === 'mobile' ? 16 : 20, fontWeight: 700, color: isSel ? C.accent : C.text, fontFamily: 'Fraunces' }}>{new Date(d + 'T12:00:00').getDate()}</div>
+                    {cnt > 0 && <div style={{ fontSize: 10, color: C.accent, fontWeight: 700 }}>{cnt}</div>}
+                  </button>
+                )
+              })}
+            </div>
+            <Card title={`Schedule \u2014 ${fmtDate(selDate)}`}>
+              {hours.map(h => {
+                const hBk = dayBk.filter(b => parseInt((b.booking_time || '').split(':')[0]) === h)
+                return (
+                  <div key={h} style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, minHeight: 56 }}>
+                    <div style={{ width: 70, padding: '10px 0', fontSize: 12, fontWeight: 600, color: C.textMuted, flexShrink: 0 }}>{h > 12 ? h - 12 : h}:00 {h >= 12 ? 'PM' : 'AM'}</div>
+                    <div style={{ flex: 1, display: 'flex', gap: 8, padding: '6px 0', flexWrap: 'wrap' }}>
+                      {hBk.map(b => {
+                        const cl = getClient(b.client_id), sv = getService(b.service_id), st = getStaffMember(b.staff_id)
+                        const sc = SC[b.status] || SC.pending
+                        return (
+                          <div key={b.id} onClick={() => setModal({ type: 'viewBooking', booking: b })} style={{ padding: '8px 12px', borderRadius: 8, background: sc.bg, borderLeft: `3px solid ${sc.text}`, cursor: 'pointer', flex: '1 1 200px', maxWidth: 300 }}>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: C.text }}>{cl?.name || b.walk_in_name || 'Client'}</div>
+                            <div style={{ fontSize: 11, color: C.textMuted }}>{sv?.name || 'Service'} \u2022 {st?.name || 'Any'} \u2022 {b.duration}min</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+              {dayBk.length === 0 && <Empty icon="calendar" msg="No appointments this day" />}
+            </Card>
+          </>
+        )}
+
+        {tab === 'hours' && (
+          <Card title="Staff Working Hours">
+            <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>Set each staff member\u2019s regular working days and hours. Clients can only book during these times.</p>
+            {staff.length === 0 ? <Empty icon="users" msg="Add staff first in the Staff tab" /> : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {staff.map(s => {
+                  const isEditing = editStaff?.id === s.id
+                  const data = isEditing ? editStaff : s
+                  return (
+                    <div key={s.id} style={{ border: `1px solid ${isEditing ? C.accent : C.border}`, borderRadius: 12, padding: 16, background: isEditing ? `${C.accent}05` : C.white }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isEditing ? 16 : 0, flexWrap: 'wrap', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: C.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.accent, fontSize: 14 }}>{s.name?.[0]}</div>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 14, color: C.text }}>{s.name}</div>
+                            <div style={{ fontSize: 12, color: C.textMuted }}>{s.role || 'Stylist'} \u2022 {(data.working_days || []).length} days/week \u2022 {(data.start_time || '09:00').slice(0, 5)}\u2013{(data.end_time || '17:00').slice(0, 5)}</div>
+                          </div>
+                        </div>
+                        {isEditing ? (
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <Btn small onClick={() => saveStaffHours(s)}>Save</Btn>
+                            <Btn small variant="ghost" onClick={() => setEditStaff(null)}>Cancel</Btn>
+                          </div>
+                        ) : (
+                          <Btn small variant="secondary" onClick={() => setEditStaff({ ...s })}>Edit</Btn>
+                        )}
+                      </div>
+                      {isEditing && (
+                        <div>
+                          <div style={{ marginBottom: 12 }}>
+                            <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Working Days</label>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {allDays.map(d => {
+                                const on = (editStaff.working_days || []).includes(d.v)
+                                return <button key={d.v} onClick={() => setEditStaff(p => ({ ...p, working_days: on ? p.working_days.filter(x => x !== d.v) : [...(p.working_days || []), d.v] }))} style={{ padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${on ? C.accent : C.border}`, background: on ? C.accentLight : C.white, color: on ? C.accent : C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', minHeight: 40 }}>{d.l}</button>
+                              })}
+                            </div>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            <div>
+                              <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Start Time</label>
+                              <input type="time" value={(editStaff.start_time || '09:00').slice(0, 5)} onChange={e => setEditStaff(p => ({ ...p, start_time: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', color: C.text }} />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>End Time</label>
+                              <input type="time" value={(editStaff.end_time || '17:00').slice(0, 5)} onChange={e => setEditStaff(p => ({ ...p, end_time: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', color: C.text }} />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Card>
+        )}
+
+        {tab === 'blocked' && (
+          <>
+            <Card title="Block Time Off">
+              <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>Block off times when staff are unavailable. Clients won\u2019t be able to book these slots.</p>
+              <div style={{ display: 'grid', gridTemplateColumns: bp === 'mobile' ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 16, padding: 16, background: C.bg, borderRadius: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Staff</label>
+                  <select value={blockForm.staff_id} onChange={e => setBlockForm(f => ({ ...f, staff_id: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }}>
+                    <option value="">Select staff\u2026</option>
+                    {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Date</label>
+                  <input type="date" value={blockForm.block_date} onChange={e => setBlockForm(f => ({ ...f, block_date: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>From (blank = all day)</label>
+                  <input type="time" value={blockForm.start_time} onChange={e => setBlockForm(f => ({ ...f, start_time: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>To</label>
+                  <input type="time" value={blockForm.end_time} onChange={e => setBlockForm(f => ({ ...f, end_time: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Reason</label>
+                  <select value={blockForm.reason} onChange={e => setBlockForm(f => ({ ...f, reason: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }}>
+                    <option value="day_off">Day Off</option><option value="leave">Leave</option><option value="lunch">Lunch Break</option><option value="personal">Personal</option><option value="training">Training</option><option value="other">Other</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                  <Btn onClick={addBlock} style={{ width: '100%' }}>Block Time</Btn>
+                </div>
+              </div>
+            </Card>
+            <Card title="Upcoming Blocked Times" style={{ marginTop: 16 }}>
+              {blockedTimes.length === 0 ? <Empty icon="clock" msg="No blocked times set" /> : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {blockedTimes.sort((a, b) => a.block_date.localeCompare(b.block_date)).map(bt => {
+                    const st = getStaffMember(bt.staff_id)
                     return (
-                      <div key={b.id} onClick={() => setModal({ type: 'viewBooking', booking: b })} style={{ padding: '8px 12px', borderRadius: 8, background: sc.bg, borderLeft: `3px solid ${sc.text}`, cursor: 'pointer', flex: '1 1 200px', maxWidth: 300 }}>
-                        <div style={{ fontWeight: 600, fontSize: 13, color: C.text }}>{cl?.name || 'Client'}</div>
-                        <div style={{ fontSize: 11, color: C.textMuted }}>{sv?.name} • {st?.name} • {b.duration}min</div>
+                      <div key={bt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, flexWrap: 'wrap', gap: 8 }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 14, color: C.text }}>{st?.name || 'Staff'}</div>
+                          <div style={{ fontSize: 12, color: C.textMuted }}>{fmtDate(bt.block_date)} \u2022 {bt.start_time ? `${bt.start_time.slice(0, 5)}\u2013${(bt.end_time || '').slice(0, 5)}` : 'All day'} \u2022 {(bt.reason || 'day_off').replace(/_/g, ' ')}</div>
+                        </div>
+                        <button onClick={() => removeBlockedTime(bt.id)} style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.danger}30`, background: '#fce4ec', color: C.danger, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', minHeight: 36 }}>Remove</button>
                       </div>
                     )
                   })}
                 </div>
-              </div>
-            )
-          })}
-        </Card>
+              )}
+            </Card>
+          </>
+        )}
       </div>
     )
   }
@@ -1212,7 +1405,7 @@ export default function App() {
           <Btn onClick={() => setModal({ type: 'addService' })}>+ Add Service</Btn>
         </div>
         {cats.length === 0 ? (
-          <Card><Empty icon="✦" msg="No services yet. Add your first service to get started." /></Card>
+          <Card><Empty icon="scissors" msg="No services yet. Add your first service to get started." /></Card>
         ) : cats.map(cat => (
           <div key={cat} style={{ marginBottom: 28 }}>
             <h3 style={{ fontSize: 18, fontFamily: 'Fraunces', color: C.text, marginBottom: 12, paddingBottom: 6, borderBottom: `2px solid ${C.accentLight}` }}>{cat}</h3>
@@ -1248,7 +1441,7 @@ export default function App() {
   // ═════ CLIENTS ═════
   function ClientsView() {
     const [search, setSearch] = useState('')
-    const filtered = clients.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.phone || '').includes(search) || (c.email || '').includes(search))
+    const filtered = clients.filter(c => !search || fuzzyMatch(search, c.name) || fuzzyMatch(search, c.phone) || fuzzyMatch(search, c.email))
     return (
       <div>
         <div style={{ marginBottom: 16 }}><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients…" style={{ padding: '10px 16px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', width: 320, outline: 'none', color: C.text, background: C.white }} /></div>
@@ -1285,7 +1478,7 @@ export default function App() {
           ))}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}><span style={{ fontSize: 28, fontWeight: 700, color: C.gold, fontFamily: 'Fraunces' }}>{avgRating}</span><div><div style={{ color: C.gold, fontSize: 14 }}>{stars(parseFloat(avgRating) || 0)}</div><div style={{ fontSize: 11, color: C.textMuted }}>{reviews.length} reviews</div></div></div>
         </div>
-        {filtered.length === 0 ? <Card><Empty icon="★" msg="No reviews match" /></Card> : filtered.map(r => {
+        {filtered.length === 0 ? <Card><Empty icon="star" msg="No reviews match" /></Card> : filtered.map(r => {
           const cl = getClient(r.client_id), sv = getService(r.service_id), st = getStaffMember(r.staff_id)
           return (
             <Card key={r.id} style={{ marginBottom: 14 }}>
@@ -1385,11 +1578,11 @@ export default function App() {
         </Card>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-          <Card title="Revenue by Service">{Object.keys(bySvc).length ? bar(bySvc, C.accent, C.rose) : <Empty icon="◈" msg="No data yet" />}</Card>
-          <Card title="Revenue by Staff">{Object.keys(byStf).length ? bar(byStf, C.gold, C.accent) : <Empty icon="◈" msg="No data yet" />}</Card>
+          <Card title="Revenue by Service">{Object.keys(bySvc).length ? bar(bySvc, C.accent, C.rose) : <Empty icon="dollar" msg="No data yet" />}</Card>
+          <Card title="Revenue by Staff">{Object.keys(byStf).length ? bar(byStf, C.gold, C.accent) : <Empty icon="dollar" msg="No data yet" />}</Card>
         </div>
         <Card title="Recent Transactions" style={{ marginTop: 0 }}>
-          {completedBk.length === 0 ? <Empty icon="◈" msg="No transactions yet" /> : (
+          {completedBk.length === 0 ? <Empty icon="dollar" msg="No transactions yet" /> : (
             <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 600 }}>
               <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Date', 'Client', 'Service', 'Amount', 'Fee', 'Net'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
@@ -1422,7 +1615,7 @@ export default function App() {
         <Card>
           <div style={{ display: 'flex', gap: 20, marginBottom: 24 }}>
             <div style={{ width: 120, height: 120, borderRadius: 16, overflow: 'hidden', flexShrink: 0, background: C.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {branch.images?.[0] ? <img src={branch.images[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 36, color: C.accent }}>⌂</span>}
+              {branch.images?.[0] ? <img src={branch.images[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name="store" size={36} color={C.accent} />}
             </div>
             <div>
               <h2 style={{ margin: '0 0 6px', fontSize: 24, fontFamily: 'Fraunces', color: C.text }}>{branch.name}</h2>
@@ -1558,15 +1751,15 @@ export default function App() {
   // ═══ AUTH GATE ═══
   if (!authChecked) return (
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ textAlign: 'center', color: C.textMuted }}><div style={{ fontSize: 32, marginBottom: 12 }}>◐</div><div style={{ fontSize: 14 }}>Loading…</div></div>
+      <div style={{ textAlign: 'center', color: C.textMuted }}><div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Icon name="refresh" size={32} color={C.textMuted} /></div><div style={{ fontSize: 14 }}>Loading…</div></div>
     </div>
   )
 
-  if (!authUser && !isDemo) return (
-    <StudioLogin onAuth={user => setAuthUser(user)} onDemo={() => setIsDemo(true)} />
+  if (!authUser) return (
+    <StudioLogin onAuth={user => setAuthUser(user)} />
   )
 
-  if (needsOnboarding && !isDemo) return (
+  if (needsOnboarding) return (
     <StudioOnboarding
       authUser={authUser}
       onComplete={(branch) => {
@@ -1580,7 +1773,7 @@ export default function App() {
 
   if (!branchId) return (
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ textAlign: 'center', color: C.textMuted }}><div style={{ fontSize: 32, marginBottom: 12 }}>◐</div><div style={{ fontSize: 14 }}>Loading branch…</div></div>
+      <div style={{ textAlign: 'center', color: C.textMuted }}><div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Icon name="refresh" size={32} color={C.textMuted} /></div><div style={{ fontSize: 14 }}>Loading branch…</div></div>
     </div>
   )
 
@@ -1607,20 +1800,19 @@ button:hover:not(:disabled) { filter: brightness(1.05); } tr:hover { background:
                 <div style={{ width: 32, height: 32, borderRadius: 10, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 700 }}>G</div>
                 <div><div style={{ fontSize: 16, fontWeight: 700, color: '#fff', fontFamily: 'Fraunces' }}>GlowBook</div><div style={{ fontSize: 10, color: C.textLight, textTransform: 'uppercase', letterSpacing: 1 }}>Studio</div></div>
               </div>
-              <button onClick={() => setSidebarOpen(false)} className="touch-target" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.5)', fontSize: 20 }}>✕</button>
+              <button onClick={() => setSidebarOpen(false)} className="touch-target" style={{ background: 'none', border: 'none', cursor: 'pointer' }}><Icon name="close" size={20} color="rgba(255,255,255,.5)" /></button>
             </div>
             <div style={{ padding: '0 12px', marginBottom: 12 }}>
               <select value={branchId} onChange={e => setBranchId(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: C.sidebarHover, color: '#fff', fontSize: 13, fontFamily: 'DM Sans', cursor: 'pointer', outline: 'none', minHeight: 44 }}>
-                {(isDemo ? branches : ownedBranches.length ? ownedBranches : branches).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                {(ownedBranches.length ? ownedBranches : branches).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
-              {isDemo && <div style={{ padding: '6px 12px', marginTop: 8, borderRadius: 6, background: 'rgba(201,168,76,0.15)', fontSize: 10, color: C.gold, fontWeight: 600, textAlign: 'center' }}>DEMO MODE</div>}
             </div>
             <nav style={{ flex: 1, overflowY: 'auto', padding: '0 8px' }}>
-              {NAV.map(item => <button key={item.id} onClick={() => { setPage(item.id); setSidebarOpen(false) }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: page === item.id ? 'rgba(196,125,90,0.15)' : 'transparent', border: 'none', borderLeft: page === item.id ? `3px solid ${C.accent}` : '3px solid transparent', color: page === item.id ? C.accent : 'rgba(255,255,255,0.55)', fontSize: 15, fontWeight: page === item.id ? 600 : 400, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left', minHeight: 48, borderRadius: 0 }}><span style={{ fontSize: 18, width: 22, textAlign: 'center' }}>{item.icon}</span>{item.label}</button>)}
+              {NAV.map(item => <button key={item.id} onClick={() => { setPage(item.id); setSidebarOpen(false) }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: page === item.id ? 'rgba(196,125,90,0.15)' : 'transparent', border: 'none', borderLeft: page === item.id ? `3px solid ${C.accent}` : '3px solid transparent', color: page === item.id ? C.accent : 'rgba(255,255,255,0.55)', fontSize: 15, fontWeight: page === item.id ? 600 : 400, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left', minHeight: 48, borderRadius: 0 }}><Icon name={item.icon} size={20} color={page === item.id ? C.accent : 'rgba(255,255,255,0.55)'} />{item.label}</button>)}
             </nav>
             <div style={{ padding: 16, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
               {authUser && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{authUser.email}</div>}
-              <button onClick={handleLogout} style={{ width: '100%', padding: '12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'center', minHeight: 44 }}>{isDemo ? '← Exit Demo' : '← Sign Out'}</button>
+              <button onClick={handleLogout} style={{ width: '100%', padding: '12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'center', minHeight: 44 }}>← Sign Out</button>
             </div>
           </div>
         </div>
@@ -1637,19 +1829,18 @@ button:hover:not(:disabled) { filter: brightness(1.05); } tr:hover { background:
           </div>
           <div style={{ padding: '0 12px', marginBottom: 20 }}>
             <select value={branchId} onChange={e => setBranchId(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: C.sidebarHover, color: '#fff', fontSize: 12, fontFamily: 'DM Sans', cursor: 'pointer', outline: 'none' }}>
-              {(isDemo ? branches : ownedBranches.length ? ownedBranches : branches).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              {(ownedBranches.length ? ownedBranches : branches).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
-            {isDemo && <div style={{ padding: '6px 12px', marginTop: 8, borderRadius: 6, background: 'rgba(201,168,76,0.15)', fontSize: 10, color: C.gold, fontWeight: 600, textAlign: 'center' }}>DEMO MODE</div>}
           </div>
           <nav style={{ flex: 1 }}>
             {NAV.map(item => {
               const active = page === item.id
-              return <button key={item.id} onClick={() => { setPage(item.id); setSidebarOpen(false) }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', background: active ? 'rgba(196,125,90,0.15)' : 'transparent', border: 'none', borderLeft: active ? `3px solid ${C.accent}` : '3px solid transparent', color: active ? C.accent : 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left', transition: 'all 0.15s' }}><span style={{ fontSize: 16, width: 20, textAlign: 'center' }}>{item.icon}</span>{item.label}</button>
+              return <button key={item.id} onClick={() => { setPage(item.id); setSidebarOpen(false) }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', background: active ? 'rgba(196,125,90,0.15)' : 'transparent', border: 'none', borderLeft: active ? `3px solid ${C.accent}` : '3px solid transparent', color: active ? C.accent : 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left', transition: 'all 0.15s' }}><Icon name={item.icon} size={18} color={active ? C.accent : 'rgba(255,255,255,0.55)'} />{item.label}</button>
             })}
           </nav>
           <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
             {authUser && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{authUser.email}</div>}
-            <button onClick={handleLogout} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left' }}>{isDemo ? '← Exit Demo' : '← Sign Out'}</button>
+            <button onClick={handleLogout} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left' }}>← Sign Out</button>
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 8 }}>GlowBook Studio v1.0</div>
           </div>
         </div>
@@ -1661,9 +1852,7 @@ button:hover:not(:disabled) { filter: brightness(1.05); } tr:hover { background:
           <div style={{ display: 'flex', alignItems: 'center', gap: bp === 'desktop' ? 16 : 10 }}>
             {bp !== 'desktop' && (
               <button onClick={() => setSidebarOpen(!sidebarOpen)} className="touch-target" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-                <div style={{ width: 20, height: 2, background: C.text, marginBottom: 5, borderRadius: 2 }} />
-                <div style={{ width: 20, height: 2, background: C.text, marginBottom: 5, borderRadius: 2 }} />
-                <div style={{ width: 20, height: 2, background: C.text, borderRadius: 2 }} />
+                <Icon name="menu" size={24} color={C.text} />
               </button>
             )}
             <div><h1 style={{ margin: 0, fontSize: bp === 'desktop' ? 22 : 18, fontFamily: 'Fraunces', fontWeight: 600, color: C.text }}>{title}</h1><p style={{ margin: 0, fontSize: 12, color: C.textMuted, display: bp === 'mobile' ? 'none' : 'block' }}>{branch?.name || 'Loading…'} • {new Date().toLocaleDateString('en-ZM', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
@@ -1674,7 +1863,7 @@ button:hover:not(:disabled) { filter: brightness(1.05); } tr:hover { background:
           </div>
         </header>
         <main style={{ padding: bp === 'desktop' ? 32 : bp === 'tablet' ? 24 : 16, animation: 'fadeIn 0.3s ease' }}>
-          {loading ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: C.textMuted }}><div style={{ textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 12 }}>◐</div><div style={{ fontSize: 14 }}>Loading…</div></div></div> : <View />}
+          {loading ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: C.textMuted }}><div style={{ textAlign: 'center' }}><div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Icon name="refresh" size={32} color={C.textMuted} /></div><div style={{ fontSize: 14 }}>Loading…</div></div></div> : <View />}
         </main>
       </div>
 
