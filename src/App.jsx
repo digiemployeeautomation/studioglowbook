@@ -26,8 +26,7 @@ function fuzzyMatch(query, text) {
       prev=curr;
     }
     if(prev[tw.length]<=maxDist) return true;
-    const minPre = Math.min(2, qw.length);
-    if(qw.length>=2 && tw.startsWith(qw.slice(0,minPre))) return true;
+    if(qw.length>=2 && qw.length<=4 && tw.startsWith(qw)) return true;
     return false;
   }));
 }
