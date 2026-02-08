@@ -1586,264 +1586,6 @@ export default function App() {
     )
   }
 
-  // ═════ WALLET ═════
-  function WalletView() {
-    const [walletData, setWalletData] = useState(null)
-    const [walletLoading, setWalletLoading] = useState(true)
-    const [withdrawForm, setWithdrawForm] = useState({ amount: '', phone: '', name: '', network: 'mtn' })
-    const [withdrawing, setWithdrawing] = useState(false)
-    const [showWithdraw, setShowWithdraw] = useState(false)
-    const [confirmAction, setConfirmAction] = useState(null) // { id, type: 'mark_paid' | 'reject', wd }
-    const [processing, setProcessing] = useState(null) // withdrawal id being processed
-
-    const SUPABASE_URL = supabase.supabaseUrl || 'https://yvupvtnpnrelbxgmwguy.supabase.co'
-
-    const loadWallet = useCallback(async () => {
-      if (!branch?.id) return
-      setWalletLoading(true)
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        const apiKey = supabase.supabaseKey || ''
-        const res = await fetch(SUPABASE_URL + '/functions/v1/wallet', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session?.access_token || ''), 'apikey': apiKey },
-          body: JSON.stringify({ action: 'get_wallet', branch_id: branch.id })
-        })
-        const data = await res.json()
-        if (data.success) setWalletData(data)
-      } catch (e) { console.error('Wallet load error:', e) }
-      setWalletLoading(false)
-    }, [branch?.id])
-
-    useEffect(() => { loadWallet() }, [loadWallet])
-
-    const requestWithdraw = async () => {
-      if (!withdrawForm.amount || !withdrawForm.phone) return
-      setWithdrawing(true)
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        const apiKey = supabase.supabaseKey || ''
-        const res = await fetch(SUPABASE_URL + '/functions/v1/wallet', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session?.access_token || ''), 'apikey': apiKey },
-          body: JSON.stringify({ action: 'request', branch_id: branch.id, amount: parseFloat(withdrawForm.amount), withdraw_to_phone: withdrawForm.phone, withdraw_to_name: withdrawForm.name, network: withdrawForm.network })
-        })
-        const data = await res.json()
-        if (data.error) { showToast(data.error, 'error') }
-        else { showToast('Withdrawal request submitted! You will be paid manually within 24h.'); setShowWithdraw(false); setWithdrawForm({ amount: '', phone: '', name: '', network: 'mtn' }); loadWallet() }
-      } catch (e) { showToast('Failed: ' + e.message, 'error') }
-      setWithdrawing(false)
-    }
-
-    const processWithdrawal = async (withdrawalId, action) => {
-      setProcessing(withdrawalId)
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        const apiKey = supabase.supabaseKey || ''
-        const res = await fetch(SUPABASE_URL + '/functions/v1/wallet', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session?.access_token || ''), 'apikey': apiKey },
-          body: JSON.stringify({ action: action, branch_id: branch.id, withdrawal_id: withdrawalId })
-        })
-        const data = await res.json()
-        if (data.error) { showToast(data.error, 'error') }
-        else { showToast(action === 'mark_paid' ? 'Withdrawal marked as paid ✓' : 'Withdrawal rejected', action === 'mark_paid' ? 'success' : 'info'); loadWallet() }
-      } catch (e) { showToast('Failed: ' + e.message, 'error') }
-      setProcessing(null)
-      setConfirmAction(null)
-    }
-
-    if (walletLoading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: C.textMuted }}><div style={{ textAlign: 'center' }}><Icon name="refresh" size={32} color={C.textMuted} /><div style={{ fontSize: 14, marginTop: 8 }}>Loading wallet...</div></div></div>
-
-    const w = walletData?.wallet
-    const txns = walletData?.transactions || []
-    const wds = walletData?.withdrawals || []
-    const bal = parseFloat(w?.balance || 0)
-    const earned = parseFloat(w?.total_earned || 0)
-    const withdrawn = parseFloat(w?.total_withdrawn || 0)
-    const feesPaid = parseFloat(w?.total_fees_paid || 0)
-
-    return (
-      <div>
-        {/* Balance Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
-          {[
-            { l: 'Available Balance', v: fmt(bal), c: C.success, icon: '💰' },
-            { l: 'Total Earned', v: fmt(earned), c: C.accent, icon: '📈' },
-            { l: 'Total Withdrawn', v: fmt(withdrawn), c: C.gold, icon: '💸' },
-            { l: 'Platform Fees Paid', v: fmt(feesPaid), c: C.textMuted, icon: '🏷️' },
-          ].map((s, i) => (
-            <Card key={i}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <span style={{ fontSize: 24 }}>{s.icon}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8 }}>{s.l}</span>
-              </div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: s.c, fontFamily: 'Fraunces' }}>{s.v}</div>
-            </Card>
-          ))}
-        </div>
-
-        {/* Withdraw Button */}
-        <Card style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.text }}>Withdraw Funds</h3>
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: C.textMuted }}>Request a manual payout to your mobile money account</p>
-            </div>
-            <Btn small variant="primary" disabled={bal < 1} onClick={() => setShowWithdraw(!showWithdraw)}>{showWithdraw ? 'Cancel' : 'Request Withdrawal'}</Btn>
-          </div>
-          {showWithdraw && (
-            <div style={{ marginTop: 20, padding: 20, background: C.bg, borderRadius: 12 }}>
-              <div style={{ padding: '10px 14px', background: '#fff8e1', borderRadius: 8, marginBottom: 14, border: '1px solid #ffe082', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                <span style={{ fontSize: 14, flexShrink: 0 }}>ℹ️</span>
-                <span style={{ fontSize: 12, color: '#6d5600', lineHeight: 1.5 }}>Payouts are processed manually. After submitting, you will receive the funds to your mobile money within 24 hours. You'll see the status update once payment is confirmed.</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Amount (K)</label>
-                  <input value={withdrawForm.amount} onChange={e => setWithdrawForm(f => ({ ...f, amount: e.target.value }))} type="number" max={bal} placeholder={`Max: ${bal.toFixed(2)}`} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, background: C.white, fontFamily: 'DM Sans' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Phone Number</label>
-                  <input value={withdrawForm.phone} onChange={e => setWithdrawForm(f => ({ ...f, phone: e.target.value }))} placeholder="0971234567" style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, background: C.white, fontFamily: 'DM Sans' }} />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Recipient Name</label>
-                  <input value={withdrawForm.name} onChange={e => setWithdrawForm(f => ({ ...f, name: e.target.value }))} placeholder="Name on account" style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, background: C.white, fontFamily: 'DM Sans' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Network</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {['mtn', 'airtel', 'zamtel'].map(n => (
-                      <button key={n} onClick={() => setWithdrawForm(f => ({ ...f, network: n }))} style={{ flex: 1, padding: '10px 8px', borderRadius: 8, border: withdrawForm.network === n ? `2px solid ${C.accent}` : `1.5px solid ${C.border}`, background: withdrawForm.network === n ? C.accentLight : C.white, color: withdrawForm.network === n ? C.accent : C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', textTransform: 'uppercase' }}>{n}</button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <Btn small variant="primary" disabled={!withdrawForm.amount || !withdrawForm.phone || withdrawing || parseFloat(withdrawForm.amount) > bal} onClick={requestWithdraw}>{withdrawing ? 'Submitting...' : `Request K${withdrawForm.amount || '0'} Payout`}</Btn>
-                <Btn small variant="ghost" onClick={() => setShowWithdraw(false)}>Cancel</Btn>
-              </div>
-            </div>
-          )}
-        </Card>
-
-        {/* Pending Withdrawals — Manual Processing */}
-        {wds.filter(w => w.status === 'pending' || w.status === 'processing').length > 0 && (
-          <Card style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <span style={{ fontSize: 20 }}>⏳</span>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.text }}>Pending Payouts</h3>
-            </div>
-            <p style={{ margin: '0 0 16px', fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>
-              These withdrawals require manual payment. Send the funds via mobile money, then click <strong>"Mark as Paid"</strong> to confirm.
-            </p>
-            {wds.filter(w => w.status === 'pending' || w.status === 'processing').map(wd => (
-              <div key={wd.id} style={{ padding: 16, background: C.bg, borderRadius: 12, marginBottom: 10, border: `1.5px solid ${C.border}` }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: 180 }}>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: C.text, fontFamily: 'Fraunces', marginBottom: 4 }}>{fmt(wd.amount)}</div>
-                    <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 2 }}>📱 <strong>{wd.withdraw_to_phone}</strong> ({(wd.network || 'mobile').toUpperCase()})</div>
-                    {wd.withdraw_to_name && <div style={{ fontSize: 12, color: C.textMuted }}>👤 {wd.withdraw_to_name}</div>}
-                    <div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>Requested {new Date(wd.created_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: '#fff3e0', color: '#e65100', textTransform: 'uppercase' }}>Awaiting Manual Payment</span>
-                    {confirmAction?.id === wd.id ? (
-                      <div style={{ padding: 14, background: C.white, borderRadius: 10, border: `1.5px solid ${confirmAction.type === 'mark_paid' ? C.success : C.danger}`, minWidth: 240 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 6 }}>
-                          {confirmAction.type === 'mark_paid' ? '✅ Confirm Payment Sent' : '❌ Confirm Rejection'}
-                        </div>
-                        <p style={{ fontSize: 12, color: C.textMuted, margin: '0 0 12px', lineHeight: 1.5 }}>
-                          {confirmAction.type === 'mark_paid'
-                            ? `Have you already sent K${parseFloat(wd.amount).toFixed(2)} to ${wd.withdraw_to_phone} via ${(wd.network || 'mobile money').toUpperCase()}?`
-                            : `This will reject the payout of K${parseFloat(wd.amount).toFixed(2)} and return the funds to the wallet balance.`
-                          }
-                        </p>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button
-                            disabled={processing === wd.id}
-                            onClick={() => processWithdrawal(wd.id, confirmAction.type)}
-                            style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: confirmAction.type === 'mark_paid' ? C.success : C.danger, color: C.white, fontSize: 12, fontWeight: 700, cursor: processing === wd.id ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', opacity: processing === wd.id ? 0.6 : 1 }}
-                          >
-                            {processing === wd.id ? 'Processing...' : confirmAction.type === 'mark_paid' ? 'Yes, I\'ve Paid' : 'Yes, Reject'}
-                          </button>
-                          <button
-                            onClick={() => setConfirmAction(null)}
-                            style={{ padding: '8px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, background: C.white, color: C.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button
-                          onClick={() => setConfirmAction({ id: wd.id, type: 'mark_paid', wd })}
-                          style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: C.success, color: C.white, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'DM Sans', display: 'flex', alignItems: 'center', gap: 5 }}
-                        >
-                          ✓ Mark as Paid
-                        </button>
-                        <button
-                          onClick={() => setConfirmAction({ id: wd.id, type: 'reject', wd })}
-                          style={{ padding: '8px 16px', borderRadius: 8, border: `1.5px solid ${C.danger}`, background: 'transparent', color: C.danger, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </Card>
-        )}
-
-        {/* Recent Transactions */}
-        <Card title="Wallet Transactions">
-          {txns.length === 0 ? <Empty icon="dollar" msg="No transactions yet" /> : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 500 }}>
-                <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Date', 'Type', 'Amount', 'Balance', 'Description'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
-                <tbody>{txns.map(t => (
-                  <tr key={t.id} style={{ borderBottom: `1px solid ${C.border}` }}>
-                    <td style={{ padding: '10px 8px', fontSize: 12 }}>{new Date(t.created_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
-                    <td style={{ padding: '10px 8px' }}><span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 10, background: t.type === 'credit' ? C.successBg : t.type === 'withdrawal' ? '#fff3e0' : C.dangerBg, color: t.type === 'credit' ? C.success : t.type === 'withdrawal' ? '#e65100' : C.danger, textTransform: 'uppercase' }}>{t.type}</span></td>
-                    <td style={{ padding: '10px 8px', fontWeight: 700, color: t.type === 'credit' ? C.success : C.danger }}>{t.type === 'credit' ? '+' : '-'}{fmt(t.amount)}</td>
-                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>{fmt(t.balance_after)}</td>
-                    <td style={{ padding: '10px 8px', fontSize: 12, color: C.textMuted, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description || '—'}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-          )}
-        </Card>
-
-        {/* Withdrawal History */}
-        {wds.length > 0 && (
-          <Card title="Payout History" style={{ marginTop: 20 }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 500 }}>
-                <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Date', 'Amount', 'To', 'Network', 'Status'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
-                <tbody>{wds.map(wd => (
-                  <tr key={wd.id} style={{ borderBottom: `1px solid ${C.border}` }}>
-                    <td style={{ padding: '10px 8px', fontSize: 12 }}>{new Date(wd.created_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
-                    <td style={{ padding: '10px 8px', fontWeight: 700 }}>{fmt(wd.amount)}</td>
-                    <td style={{ padding: '10px 8px' }}>{wd.withdraw_to_phone}</td>
-                    <td style={{ padding: '10px 8px', textTransform: 'uppercase', fontSize: 12, fontWeight: 600 }}>{wd.network || '—'}</td>
-                    <td style={{ padding: '10px 8px' }}><span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 10, background: wd.status === 'completed' ? C.successBg : wd.status === 'failed' || wd.status === 'rejected' ? C.dangerBg : C.pendingBg, color: wd.status === 'completed' ? C.success : wd.status === 'failed' || wd.status === 'rejected' ? C.danger : C.pending, textTransform: 'uppercase' }}>{wd.status === 'completed' ? 'Paid ✓' : wd.status}</span></td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-          </Card>
-        )}
-      </div>
-    )
-  }
-
   // ═════ PROFILE ═════
   function ProfileView() {
     if (!branch) return null
@@ -1978,6 +1720,264 @@ export default function App() {
       )
     }
     return null
+  }
+
+  // ═════ WALLET ═════
+  function WalletView() {
+    const [walletData, setWalletData] = useState(null)
+    const [walletLoading, setWalletLoading] = useState(true)
+    const [withdrawForm, setWithdrawForm] = useState({ amount: '', phone: '', name: '', network: 'mtn' })
+    const [withdrawing, setWithdrawing] = useState(false)
+    const [showWithdraw, setShowWithdraw] = useState(false)
+    const [confirmAction, setConfirmAction] = useState(null)
+    const [processing, setProcessing] = useState(null)
+
+    const SUPABASE_URL = supabase.supabaseUrl || 'https://yvupvtnpnrelbxgmwguy.supabase.co'
+
+    const loadWallet = useCallback(async () => {
+      if (!branch?.id) return
+      setWalletLoading(true)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const apiKey = supabase.supabaseKey || ''
+        const res = await fetch(SUPABASE_URL + '/functions/v1/wallet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session?.access_token || ''), 'apikey': apiKey },
+          body: JSON.stringify({ action: 'get_wallet', branch_id: branch.id })
+        })
+        const data = await res.json()
+        if (data.success) setWalletData(data)
+      } catch (e) { console.error('Wallet load error:', e) }
+      setWalletLoading(false)
+    }, [branch?.id])
+
+    useEffect(() => { loadWallet() }, [loadWallet])
+
+    const requestWithdraw = async () => {
+      if (!withdrawForm.amount || !withdrawForm.phone) return
+      setWithdrawing(true)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const apiKey = supabase.supabaseKey || ''
+        const res = await fetch(SUPABASE_URL + '/functions/v1/wallet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session?.access_token || ''), 'apikey': apiKey },
+          body: JSON.stringify({ action: 'request', branch_id: branch.id, amount: parseFloat(withdrawForm.amount), withdraw_to_phone: withdrawForm.phone, withdraw_to_name: withdrawForm.name, network: withdrawForm.network })
+        })
+        const data = await res.json()
+        if (data.error) { showToast(data.error, 'error') }
+        else { showToast('Withdrawal request submitted! You will be paid manually within 24h.'); setShowWithdraw(false); setWithdrawForm({ amount: '', phone: '', name: '', network: 'mtn' }); loadWallet() }
+      } catch (e) { showToast('Failed: ' + e.message, 'error') }
+      setWithdrawing(false)
+    }
+
+    const processWithdrawal = async (withdrawalId, action) => {
+      setProcessing(withdrawalId)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const apiKey = supabase.supabaseKey || ''
+        const res = await fetch(SUPABASE_URL + '/functions/v1/wallet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session?.access_token || ''), 'apikey': apiKey },
+          body: JSON.stringify({ action: action, branch_id: branch.id, withdrawal_id: withdrawalId })
+        })
+        const data = await res.json()
+        if (data.error) { showToast(data.error, 'error') }
+        else { showToast(action === 'mark_paid' ? 'Withdrawal marked as paid ✓' : 'Withdrawal rejected', action === 'mark_paid' ? 'success' : 'info'); loadWallet() }
+      } catch (e) { showToast('Failed: ' + e.message, 'error') }
+      setProcessing(null)
+      setConfirmAction(null)
+    }
+
+    if (walletLoading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: C.textMuted }}><div style={{ textAlign: 'center' }}><Icon name="refresh" size={32} color={C.textMuted} /><div style={{ fontSize: 14, marginTop: 8 }}>Loading wallet...</div></div></div>
+
+    const w = walletData?.wallet
+    const txns = walletData?.transactions || []
+    const wds = walletData?.withdrawals || []
+    const bal = parseFloat(w?.balance || 0)
+    const earned = parseFloat(w?.total_earned || 0)
+    const withdrawn = parseFloat(w?.total_withdrawn || 0)
+    const feesPaid = parseFloat(w?.total_fees_paid || 0)
+
+    return (
+      <div>
+        {/* Balance Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+          {[
+            { l: 'Available Balance', v: fmt(bal), c: C.success, icon: '💰' },
+            { l: 'Total Earned', v: fmt(earned), c: C.accent, icon: '📈' },
+            { l: 'Total Withdrawn', v: fmt(withdrawn), c: C.gold, icon: '💸' },
+            { l: 'Platform Fees Paid', v: fmt(feesPaid), c: C.textMuted, icon: '🏷️' },
+          ].map((s, i) => (
+            <Card key={i}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 24 }}>{s.icon}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8 }}>{s.l}</span>
+              </div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: s.c, fontFamily: 'Fraunces' }}>{s.v}</div>
+            </Card>
+          ))}
+        </div>
+
+        {/* Request Withdrawal */}
+        <Card style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.text }}>Withdraw Funds</h3>
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: C.textMuted }}>Request a manual payout to your mobile money account</p>
+            </div>
+            <Btn small variant="primary" disabled={bal < 1} onClick={() => setShowWithdraw(!showWithdraw)}>{showWithdraw ? 'Cancel' : 'Request Withdrawal'}</Btn>
+          </div>
+          {showWithdraw && (
+            <div style={{ marginTop: 20, padding: 20, background: C.bg, borderRadius: 12 }}>
+              <div style={{ padding: '10px 14px', background: '#fff8e1', borderRadius: 8, marginBottom: 14, border: '1px solid #ffe082', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <span style={{ fontSize: 14, flexShrink: 0 }}>ℹ️</span>
+                <span style={{ fontSize: 12, color: '#6d5600', lineHeight: 1.5 }}>Payouts are processed manually. After submitting, you will receive the funds to your mobile money within 24 hours. You'll see the status update once payment is confirmed.</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Amount (K)</label>
+                  <input value={withdrawForm.amount} onChange={e => setWithdrawForm(f => ({ ...f, amount: e.target.value }))} type="number" max={bal} placeholder={`Max: ${bal.toFixed(2)}`} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, background: C.white, fontFamily: 'DM Sans' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Phone Number</label>
+                  <input value={withdrawForm.phone} onChange={e => setWithdrawForm(f => ({ ...f, phone: e.target.value }))} placeholder="0971234567" style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, background: C.white, fontFamily: 'DM Sans' }} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Recipient Name</label>
+                  <input value={withdrawForm.name} onChange={e => setWithdrawForm(f => ({ ...f, name: e.target.value }))} placeholder="Name on account" style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, background: C.white, fontFamily: 'DM Sans' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Network</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {['mtn', 'airtel', 'zamtel'].map(n => (
+                      <button key={n} onClick={() => setWithdrawForm(f => ({ ...f, network: n }))} style={{ flex: 1, padding: '10px 8px', borderRadius: 8, border: withdrawForm.network === n ? `2px solid ${C.accent}` : `1.5px solid ${C.border}`, background: withdrawForm.network === n ? C.accentLight : C.white, color: withdrawForm.network === n ? C.accent : C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', textTransform: 'uppercase' }}>{n}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <Btn small variant="primary" disabled={!withdrawForm.amount || !withdrawForm.phone || withdrawing || parseFloat(withdrawForm.amount) > bal} onClick={requestWithdraw}>{withdrawing ? 'Submitting...' : `Request K${withdrawForm.amount || '0'} Payout`}</Btn>
+                <Btn small variant="ghost" onClick={() => setShowWithdraw(false)}>Cancel</Btn>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Pending Payouts — Manual Processing */}
+        {wds.filter(w => w.status === 'pending' || w.status === 'processing').length > 0 && (
+          <Card style={{ marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <span style={{ fontSize: 20 }}>⏳</span>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.text }}>Pending Payouts</h3>
+            </div>
+            <p style={{ margin: '0 0 16px', fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>
+              These withdrawals require manual payment. Send the funds via mobile money, then click <strong>"Mark as Paid"</strong> to confirm.
+            </p>
+            {wds.filter(w => w.status === 'pending' || w.status === 'processing').map(wd => (
+              <div key={wd.id} style={{ padding: 16, background: C.bg, borderRadius: 12, marginBottom: 10, border: `1.5px solid ${C.border}` }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: C.text, fontFamily: 'Fraunces', marginBottom: 4 }}>{fmt(wd.amount)}</div>
+                    <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 2 }}>📱 <strong>{wd.withdraw_to_phone}</strong> ({(wd.network || 'mobile').toUpperCase()})</div>
+                    {wd.withdraw_to_name && <div style={{ fontSize: 12, color: C.textMuted }}>👤 {wd.withdraw_to_name}</div>}
+                    <div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>Requested {new Date(wd.created_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: '#fff3e0', color: '#e65100', textTransform: 'uppercase' }}>Awaiting Manual Payment</span>
+                    {confirmAction?.id === wd.id ? (
+                      <div style={{ padding: 14, background: C.white, borderRadius: 10, border: `1.5px solid ${confirmAction.type === 'mark_paid' ? C.success : C.danger}`, minWidth: 240 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 6 }}>
+                          {confirmAction.type === 'mark_paid' ? '✅ Confirm Payment Sent' : '❌ Confirm Rejection'}
+                        </div>
+                        <p style={{ fontSize: 12, color: C.textMuted, margin: '0 0 12px', lineHeight: 1.5 }}>
+                          {confirmAction.type === 'mark_paid'
+                            ? `Have you already sent K${parseFloat(wd.amount).toFixed(2)} to ${wd.withdraw_to_phone} via ${(wd.network || 'mobile money').toUpperCase()}?`
+                            : `This will reject the payout of K${parseFloat(wd.amount).toFixed(2)} and return the funds to the wallet balance.`
+                          }
+                        </p>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button
+                            disabled={processing === wd.id}
+                            onClick={() => processWithdrawal(wd.id, confirmAction.type)}
+                            style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: confirmAction.type === 'mark_paid' ? C.success : C.danger, color: C.white, fontSize: 12, fontWeight: 700, cursor: processing === wd.id ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', opacity: processing === wd.id ? 0.6 : 1 }}
+                          >
+                            {processing === wd.id ? 'Processing...' : confirmAction.type === 'mark_paid' ? 'Yes, I\'ve Paid' : 'Yes, Reject'}
+                          </button>
+                          <button
+                            onClick={() => setConfirmAction(null)}
+                            style={{ padding: '8px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, background: C.white, color: C.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() => setConfirmAction({ id: wd.id, type: 'mark_paid', wd })}
+                          style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: C.success, color: C.white, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'DM Sans', display: 'flex', alignItems: 'center', gap: 5 }}
+                        >
+                          ✓ Mark as Paid
+                        </button>
+                        <button
+                          onClick={() => setConfirmAction({ id: wd.id, type: 'reject', wd })}
+                          style={{ padding: '8px 16px', borderRadius: 8, border: `1.5px solid ${C.danger}`, background: 'transparent', color: C.danger, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </Card>
+        )}
+
+        {/* Wallet Transactions */}
+        <Card title="Wallet Transactions">
+          {txns.length === 0 ? <Empty icon="dollar" msg="No transactions yet" /> : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 500 }}>
+                <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Date', 'Type', 'Amount', 'Balance', 'Description'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
+                <tbody>{txns.map(t => (
+                  <tr key={t.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td style={{ padding: '10px 8px', fontSize: 12 }}>{new Date(t.created_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+                    <td style={{ padding: '10px 8px' }}><span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 10, background: t.type === 'credit' ? C.successBg : t.type === 'withdrawal' ? '#fff3e0' : C.dangerBg, color: t.type === 'credit' ? C.success : t.type === 'withdrawal' ? '#e65100' : C.danger, textTransform: 'uppercase' }}>{t.type}</span></td>
+                    <td style={{ padding: '10px 8px', fontWeight: 700, color: t.type === 'credit' ? C.success : C.danger }}>{t.type === 'credit' ? '+' : '-'}{fmt(t.amount)}</td>
+                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>{fmt(t.balance_after)}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 12, color: C.textMuted, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description || '—'}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+
+        {/* Payout History */}
+        {wds.length > 0 && (
+          <Card title="Payout History" style={{ marginTop: 20 }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 500 }}>
+                <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Date', 'Amount', 'To', 'Network', 'Status'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
+                <tbody>{wds.map(wd => (
+                  <tr key={wd.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td style={{ padding: '10px 8px', fontSize: 12 }}>{new Date(wd.created_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                    <td style={{ padding: '10px 8px', fontWeight: 700 }}>{fmt(wd.amount)}</td>
+                    <td style={{ padding: '10px 8px' }}>{wd.withdraw_to_phone}</td>
+                    <td style={{ padding: '10px 8px', textTransform: 'uppercase', fontSize: 12, fontWeight: 600 }}>{wd.network || '—'}</td>
+                    <td style={{ padding: '10px 8px' }}><span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 10, background: wd.status === 'completed' ? C.successBg : wd.status === 'failed' || wd.status === 'rejected' ? C.dangerBg : C.pendingBg, color: wd.status === 'completed' ? C.success : wd.status === 'failed' || wd.status === 'rejected' ? C.danger : C.pending, textTransform: 'uppercase' }}>{wd.status === 'completed' ? 'Paid ✓' : wd.status}</span></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </Card>
+        )}
+      </div>
+    )
   }
 
   // ═════ LAYOUT ═════
