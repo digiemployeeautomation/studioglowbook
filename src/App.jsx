@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
+import { LayoutDashboard, Calendar, Clock, Users, Scissors, User, Star, DollarSign, Home, Menu, X, Search, Check, Plus, Pencil, Trash2, Eye, UserPlus, XCircle, Bell, ArrowLeft, ChevronRight, ChevronDown, LogOut, Upload, Phone, MapPin, Mail, Sparkles, Gift, TrendingUp, RefreshCw, Camera, Filter, Wallet, AlertCircle } from 'lucide-react'
 
 function useBreakpoint() {
   const [bp, setBp] = useState('desktop')
@@ -36,44 +37,11 @@ const NAV = [
   { id: 'profile', label: 'Branch Profile', icon: 'store' },
 ]
 
+const LUCIDE_MAP = { dashboard:LayoutDashboard, calendar:Calendar, clock:Clock, users:Users, scissors:Scissors, clients:User, star:Star, dollar:DollarSign, store:Home, menu:Menu, close:X, search:Search, check:Check, plus:Plus, edit:Pencil, trash:Trash2, eye:Eye, walkin:UserPlus, noshow:XCircle, bell:Bell, back:ArrowLeft, chevR:ChevronRight, chevD:ChevronDown, logout:LogOut, upload:Upload, phone:Phone, map:MapPin, mail:Mail, sparkle:Sparkles, gift:Gift, trendUp:TrendingUp, refresh:RefreshCw, camera:Camera, filter:Filter, wallet:Wallet, alert:AlertCircle }
 const Icon = ({ name, size = 20, color = 'currentColor' }) => {
-  const p = {
-    dashboard:<><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
-    calendar:<><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></>,
-    clock:<><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></>,
-    users:<><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></>,
-    scissors:<><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12"/></>,
-    clients:<><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
-    star:<><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></>,
-    dollar:<><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></>,
-    store:<><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></>,
-    menu:<><path d="M3 12h18M3 6h18M3 18h18"/></>,
-    close:<><path d="M18 6L6 18M6 6l12 12"/></>,
-    search:<><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></>,
-    check:<><path d="M20 6L9 17l-5-5"/></>,
-    plus:<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
-    edit:<><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
-    trash:<><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></>,
-    eye:<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>,
-    walkin:<><path d="M13 4a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM7 21l3-8 2.5 2v6M15.5 13L18 21M10 13L6 8l4-1 3 3"/></>,
-    noshow:<><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></>,
-    bell:<><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></>,
-    back:<><path d="M19 12H5M12 19l-7-7 7-7"/></>,
-    chevR:<><path d="M9 18l6-6-6-6"/></>,
-    chevD:<><path d="M6 9l6 6 6-6"/></>,
-    logout:<><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></>,
-    upload:<><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></>,
-    phone:<><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></>,
-    map:<><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/></>,
-    mail:<><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></>,
-    sparkle:<><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/></>,
-    gift:<><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 010-5C9 3 12 6 12 8M16.5 8a2.5 2.5 0 000-5C15 3 12 6 12 8"/></>,
-    trendUp:<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>,
-    refresh:<><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></>,
-    camera:<><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></>,
-    filter:<><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></>,
-  }
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{p[name]||p.sparkle}</svg>
+  const L = LUCIDE_MAP[name]
+  if (L) return <L size={size} color={color} strokeWidth={2} />
+  return <Sparkles size={size} color={color} />
 }
 
 const SC = {
@@ -91,7 +59,7 @@ const fmt = (n) => `K ${Number(n || 0).toLocaleString()}`
 const fmtDate = (d) => new Date(d+'T12:00:00').toLocaleDateString('en-ZM', { weekday: 'short', day: 'numeric', month: 'short' })
 const fmtTime = (t) => { const [h, m] = (t || '00:00').split(':'); const hr = parseInt(h); return `${hr > 12 ? hr - 12 : hr || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}` }
 const todayStr = () => new Date().toISOString().split('T')[0]
-const stars = (n) => '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n))
+const stars = (n) => <span style={{display:'inline-flex',gap:1}}>{[1,2,3,4,5].map(i=><Star key={i} size={14} fill={i<=Math.round(n)?'#c9a84c':'none'} stroke={i<=Math.round(n)?'#c9a84c':'#ccc'} strokeWidth={1.5}/>)}</span>
 
 function Badge({ status }) {
   const s = SC[status] || SC.pending
@@ -100,12 +68,12 @@ function Badge({ status }) {
 
 function Btn({ children, variant = 'primary', small, onClick, disabled, style = {} }) {
   const v = { primary: { background: C.accent, color: '#fff', border: 'none' }, secondary: { background: 'transparent', color: C.accent, border: `1.5px solid ${C.accent}` }, danger: { background: C.danger, color: '#fff', border: 'none' }, ghost: { background: 'transparent', color: C.textMuted, border: `1px solid ${C.border}` }, success: { background: C.success, color: '#fff', border: 'none' } }
-  return <button onClick={onClick} disabled={disabled} style={{ ...v[variant], padding: small ? '5px 12px' : '8px 18px', borderRadius: 8, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', opacity: disabled ? 0.5 : 1, transition: 'all 0.15s', whiteSpace: 'nowrap', ...style }}>{children}</button>
+  return <button onClick={onClick} disabled={disabled} className="btn-hover" style={{ ...v[variant], padding: small ? '5px 12px' : '8px 18px', borderRadius: 8, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', opacity: disabled ? 0.5 : 1, transition: 'all 0.15s cubic-bezier(.16,1,.3,1)', whiteSpace: 'nowrap', ...style }}>{children}</button>
 }
 
 function Card({ children, title, action, style = {} }) {
   return (
-    <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 24, ...style }}>
+    <div className="card-hover" style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 24, ...style }}>
       {(title || action) && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>{title && <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: C.text, fontFamily: 'Fraunces' }}>{title}</h3>}{action}</div>}
       {children}
     </div>
@@ -632,7 +600,7 @@ function ServiceModal({ service, branchId, onSave, onClose, existingAddons }) {
 
       {/* Deposit (read-only) */}
       <div style={{ padding: '10px 14px', borderRadius: 8, background: C.goldLight, border: `1px solid ${C.gold}20`, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 13, color: C.gold, fontWeight: 600 }}>💰 Deposit: K100</span>
+        <span style={{ fontSize: 13, color: C.gold, fontWeight: 600 }}>Deposit: K100</span>
         <span style={{ fontSize: 11, color: C.textMuted }}>(fixed for all bookings)</span>
       </div>
 
@@ -868,7 +836,7 @@ function StudioOnboarding({ authUser, onComplete, onLogout }) {
         </div>
 
         <button onClick={handleCreate} disabled={submitting} style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: C.accent, color: '#fff', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', marginBottom: 12, opacity: submitting ? 0.6 : 1, minHeight: 48 }}>
-          {submitting ? 'Creating…' : 'Create Salon ✨'}
+          {submitting ? 'Creating…' : 'Create Salon'}
         </button>
 
         <button onClick={onLogout} style={{ width: '100%', padding: '10px', background: 'none', border: 'none', color: C.textMuted, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans' }}>Sign out</button>
@@ -974,10 +942,10 @@ export default function App() {
     if (!branchId) return
     const channel = supabase.channel('studio-bookings-' + branchId)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `branch_id=eq.${branchId}` }, (payload) => {
-        if (payload.eventType === 'INSERT') showToast('🔔 New booking received!');
+        if (payload.eventType === 'INSERT') showToast('New booking received!');
         fetchAll();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reviews', filter: `branch_id=eq.${branchId}` }, () => { showToast('📝 New review!'); fetchAll(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reviews', filter: `branch_id=eq.${branchId}` }, () => { showToast('New review received!'); fetchAll(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'waitlist', filter: `branch_id=eq.${branchId}` }, () => fetchAll())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_blocked_times', filter: `branch_id=eq.${branchId}` }, () => fetchAll())
       .subscribe()
@@ -1112,7 +1080,7 @@ export default function App() {
           ))}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-          <Card title="Today's Schedule" action={<Btn small variant="ghost" onClick={() => setPage('bookings')}>View All →</Btn>}>
+          <Card title="Today's Schedule" action={<Btn small variant="ghost" onClick={() => setPage('bookings')}>View All <ChevronRight size={14}/></Btn>}>
             {todayBk.length === 0 ? <Empty icon="calendar" msg="No bookings today" /> : todayBk.slice(0, 5).map(b => {
               const cl = getClient(b.client_id), sv = getService(b.service_id), st = getStaffMember(b.staff_id)
               return (
@@ -1124,7 +1092,7 @@ export default function App() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     <Badge status={b.status} />
-                    {b.status === 'pending' && <button onClick={() => updateBooking(b.id, { status: 'confirmed' })} style={{ padding: '2px 8px', borderRadius: 6, border: `1px solid ${C.success}30`, background: '#e8f5ec', color: C.success, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>✓</button>}
+                    {b.status === 'pending' && <button onClick={() => updateBooking(b.id, { status: 'confirmed' })} style={{ padding: '2px 8px', borderRadius: 6, border: `1px solid ${C.success}30`, background: '#e8f5ec', color: C.success, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', display: 'flex', alignItems: 'center', gap: 2 }}><Check size={12}/></button>}
                     {b.status === 'confirmed' && <button onClick={() => updateBooking(b.id, { status: 'arrived' })} style={{ padding: '2px 8px', borderRadius: 6, border: `1px solid #00695c30`, background: '#e0f7fa', color: '#00695c', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>In</button>}
                     {(b.status === 'arrived' || b.status === 'in_progress') && <button onClick={() => updateBooking(b.id, { status: 'completed', completed_at: new Date().toISOString() })} style={{ padding: '2px 8px', borderRadius: 6, border: `1px solid ${C.success}30`, background: '#e8f5ec', color: C.success, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>Done</button>}
                   </div>
@@ -1132,7 +1100,7 @@ export default function App() {
               )
             })}
           </Card>
-          <Card title="Recent Reviews" action={<Btn small variant="ghost" onClick={() => setPage('reviews')}>View All →</Btn>}>
+          <Card title="Recent Reviews" action={<Btn small variant="ghost" onClick={() => setPage('reviews')}>View All <ChevronRight size={14}/></Btn>}>
             {reviews.length === 0 ? <Empty icon="star" msg="No reviews yet" /> : reviews.slice(0, 4).map(r => {
               const cl = getClient(r.client_id)
               return (
@@ -1231,7 +1199,7 @@ export default function App() {
                     <td style={{ padding: '12px 8px' }}>{sv?.name || '—'}</td>
                     <td style={{ padding: '12px 8px' }}>{st?.name || '—'}</td>
                     <td style={{ padding: '12px 8px', fontWeight: 600 }}>{fmt(b.total_amount)}{b.discount_amount > 0 && <div style={{ fontSize: 10, color: C.gold }}>-{fmt(b.discount_amount)} pts</div>}</td>
-                    <td style={{ padding: '12px 8px' }}>{b.deposit_paid ? <span style={{ color: C.success, fontWeight: 600, fontSize: 11 }}>✓ K{b.deposit_amount || 100}</span> : <button onClick={() => updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: 100 })} style={{ padding: '2px 8px', borderRadius: 4, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', fontSize: 11, color: C.accent, fontFamily: 'DM Sans' }}>Mark Paid</button>}</td>
+                    <td style={{ padding: '12px 8px' }}>{b.deposit_paid ? <span style={{ color: C.success, fontWeight: 600, fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 2 }}><Check size={12}/> K{b.deposit_amount || 100}</span> : <button onClick={() => updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: 100 })} style={{ padding: '2px 8px', borderRadius: 4, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', fontSize: 11, color: C.accent, fontFamily: 'DM Sans' }}>Mark Paid</button>}</td>
                     <td style={{ padding: '12px 8px', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: C.textMuted }} title={b.client_notes || ''}>{b.client_notes || '—'}</td>
                     <td style={{ padding: '12px 8px' }}><Badge status={b.status} /></td>
                     <td style={{ padding: '12px 8px' }}>
@@ -1475,7 +1443,7 @@ export default function App() {
                   <div><div style={{ fontWeight: 700, fontSize: 16, color: C.text, fontFamily: 'Fraunces' }}>{s.name}</div><div style={{ fontSize: 13, color: C.textMuted }}>{s.role}</div><span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: on ? C.successBg : C.dangerBg, color: on ? C.success : C.danger }}>{on ? 'On Duty' : 'Off'}</span></div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
-                  {[{ l: 'Rating', v: s.rating ? `${s.rating}★` : '—' }, { l: 'Done', v: s.bookings_completed || 0 }, { l: 'Exp', v: `${s.years_experience || 0}yr` }].map((x, i) => (
+                  {[{ l: 'Rating', v: s.rating ? <span style={{display:'flex',alignItems:'center',gap:2}}>{s.rating}<Star size={12} fill="#c9a84c" stroke="#c9a84c" strokeWidth={0}/></span> : '—' }, { l: 'Done', v: s.bookings_completed || 0 }, { l: 'Exp', v: `${s.years_experience || 0}yr` }].map((x, i) => (
                     <div key={i} style={{ textAlign: 'center', padding: 8, borderRadius: 8, background: C.bg }}><div style={{ fontSize: 15, fontWeight: 700, color: C.accent }}>{x.v}</div><div style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase' }}>{x.l}</div></div>
                   ))}
                 </div>
@@ -1773,11 +1741,11 @@ export default function App() {
           {branch.sms_enabled && (
             <div style={{ marginTop: 16, padding: 12, borderRadius: 8, background: C.bg }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>SMS will be sent for:</div>
-              <div style={{ fontSize: 13, color: C.text, lineHeight: 1.8 }}>
-                ✓ Booking confirmed<br />
-                ✓ Booking cancelled<br />
-                ✓ 24h appointment reminder<br />
-                ✓ No-show notification<br />
+              <div style={{ fontSize: 13, color: C.text, lineHeight: 2.2 }}>
+                <span style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}><Check size={13} color={C.success}/> Booking confirmed</span>
+                <span style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}><Check size={13} color={C.success}/> Booking cancelled</span>
+                <span style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}><Check size={13} color={C.success}/> 24h appointment reminder</span>
+                <span style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}><Check size={13} color={C.success}/> No-show notification</span>
                 <span style={{ color: C.textMuted }}>Cost: ~K0.17 per SMS (billed via Africa's Talking)</span>
               </div>
             </div>
@@ -1807,19 +1775,19 @@ export default function App() {
       if (error) { toast(error.message, 'error'); return }
       setSent(true); setMsg('')
       setTimeout(() => { setSent(false); setOpen(false) }, 2500)
-      toast('Thanks for your feedback! 💬')
+      toast('Thanks for your feedback!')
     }
 
     if (sent) return (
       <Card style={{ marginTop: 20, textAlign: 'center', padding: '32px 20px' }}>
-        <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
+        <div style={{ marginBottom: 8 }}><Icon name="check" size={28} color="#2e7d32" /></div>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Thank you!</div>
         <div style={{ fontSize: 13, color: C.textMuted, marginTop: 4 }}>Your suggestion has been submitted to GlowBook</div>
       </Card>
     )
 
     return (
-      <Card title="💡 Suggestion Box" style={{ marginTop: 20 }}>
+      <Card title="Suggestion Box" style={{ marginTop: 20 }}>
         {!open ? (
           <div>
             <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 14, lineHeight: 1.5 }}>Have ideas on how to improve GlowBook? We'd love to hear from you.</p>
@@ -1889,7 +1857,7 @@ export default function App() {
               <Btn variant="danger" onClick={() => { setModal({ type: 'cancelBooking', booking: b }) }}>Cancel</Btn>
             </>}
             {!b.deposit_paid && !['cancelled','no_show'].includes(b.status) && <Btn onClick={() => { updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: 100 }); setModal(null); showToast('Deposit marked as paid') }} style={{ background: C.bg, color: C.gold, border: `1px solid ${C.gold}` }}>Mark Deposit Paid</Btn>}
-            {b.status === 'completed' && branch?.sms_enabled && <Btn onClick={() => { sendReviewRequest(b.id); setModal(null) }} style={{ background: C.bg, color: C.accent, border: `1px solid ${C.accent}` }}>📱 Request Review SMS</Btn>}
+            {b.status === 'completed' && branch?.sms_enabled && <Btn onClick={() => { sendReviewRequest(b.id); setModal(null) }} style={{ background: C.bg, color: C.accent, border: `1px solid ${C.accent}` }}><Phone size={14} color={C.accent}/> Request Review SMS</Btn>}
           </div>
         </Modal>
       )
@@ -1975,8 +1943,8 @@ export default function App() {
         {/* Balance Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
           {[
-            { l: 'Available Balance', v: fmt(bal), c: C.success, icon: '💰' },
-            { l: 'Total Earned', v: fmt(earned), c: C.accent, icon: '📈' },
+            { l: 'Available Balance', v: fmt(bal), c: C.success, icon: 'dollar' },
+            { l: 'Total Earned', v: fmt(earned), c: C.accent, icon: 'trendUp' },
             { l: 'Total Withdrawn', v: fmt(withdrawn), c: C.gold, icon: '💸' },
             { l: 'Platform Fees Paid', v: fmt(feesPaid), c: C.textMuted, icon: '🏷️' },
           ].map((s, i) => (
@@ -2052,8 +2020,8 @@ export default function App() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 180 }}>
                     <div style={{ fontSize: 22, fontWeight: 700, color: C.text, fontFamily: 'Fraunces', marginBottom: 4 }}>{fmt(wd.amount)}</div>
-                    <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 2 }}>📱 <strong>{wd.withdraw_to_phone}</strong> ({(wd.network || 'mobile').toUpperCase()})</div>
-                    {wd.withdraw_to_name && <div style={{ fontSize: 12, color: C.textMuted }}>👤 {wd.withdraw_to_name}</div>}
+                    <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}><Phone size={13} color={C.textMuted}/> <strong>{wd.withdraw_to_phone}</strong> ({(wd.network || 'mobile').toUpperCase()})</div>
+                    {wd.withdraw_to_name && <div style={{ fontSize: 12, color: C.textMuted }}>{wd.withdraw_to_name}</div>}
                     <div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>Requested {new Date(wd.created_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                   </div>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: '6px 14px', borderRadius: 20, background: '#fff3e0', color: '#e65100', textTransform: 'uppercase' }}>⏳ Awaiting Payment</span>
@@ -2145,12 +2113,39 @@ export default function App() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap');
 * { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; font-family: 'DM Sans', system-ui, sans-serif; }
 ::-webkit-scrollbar { width: 6px; height: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 3px; }
-button:hover:not(:disabled) { filter: brightness(1.05); } tr:hover { background: ${C.bg}; }
+input:focus,textarea:focus,select:focus { outline: none; border-color: ${C.accent} !important; box-shadow: 0 0 0 3px rgba(196,125,90,0.15); transition: border-color .15s, box-shadow .15s; }
 @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pageIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes drawerIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes toastIn { 0% { opacity: 0; transform: translateY(16px) scale(.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes badgePulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+@keyframes successPop { 0% { transform: scale(0); opacity: 0; } 50% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes tabSlide { from { opacity: 0; transform: translateX(6px); } to { opacity: 1; transform: translateX(0); } }
+.page-in { animation: pageIn .3s cubic-bezier(.16,1,.3,1) both; }
+.page-content { animation: slideIn .35s cubic-bezier(.16,1,.3,1) both; }
+.scale-in { animation: scaleIn .25s cubic-bezier(.16,1,.3,1) both; }
+.toast-anim { animation: toastIn .3s cubic-bezier(.16,1,.3,1) both; }
+.badge-pulse { animation: badgePulse 2s ease-in-out infinite; }
+.success-pop { animation: successPop .4s cubic-bezier(.34,1.56,.64,1) both; }
+.tab-content { animation: tabSlide .25s cubic-bezier(.16,1,.3,1) both; }
+.skeleton { background: linear-gradient(90deg, ${C.border} 25%, #f5f0ed 50%, ${C.border} 75%); background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; border-radius: 8px; }
+.card-hover { transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s ease; }
+.card-hover:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(26,18,21,.06); }
+.btn-hover { transition: all .15s cubic-bezier(.16,1,.3,1); }
+.btn-hover:hover:not(:disabled) { filter: brightness(1.05); transform: translateY(-1px); }
+.btn-hover:active:not(:disabled) { transform: scale(.97) translateY(0); }
+.star-btn { transition: transform .12s cubic-bezier(.34,1.56,.64,1); cursor: pointer; display: inline-flex; }
+.star-btn:hover { transform: scale(1.2); }
+.star-btn:active { transform: scale(.9); }
+.icon-btn { transition: all .15s ease; display: flex; align-items: center; justify-content: center; }
+.icon-btn:hover { background: rgba(196,125,90,.08); transform: scale(1.05); }
+tr { transition: background .15s ease; } tr:hover { background: ${C.bg}; }
 .touch-target { min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; }
+.stagger-1{animation-delay:.05s}.stagger-2{animation-delay:.1s}.stagger-3{animation-delay:.15s}.stagger-4{animation-delay:.2s}.stagger-5{animation-delay:.25s}
 `}</style>
 
       {/* Mobile/Tablet Drawer Overlay */}
@@ -2175,7 +2170,7 @@ button:hover:not(:disabled) { filter: brightness(1.05); } tr:hover { background:
             </nav>
             <div style={{ padding: 16, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
               {authUser && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{authUser.email}</div>}
-              <button onClick={handleLogout} style={{ width: '100%', padding: '12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'center', minHeight: 44 }}>← Sign Out</button>
+              <button onClick={handleLogout} style={{ width: '100%', padding: '12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'center', minHeight: 44 }}>Sign Out</button>
             </div>
           </div>
         </div>
@@ -2203,7 +2198,7 @@ button:hover:not(:disabled) { filter: brightness(1.05); } tr:hover { background:
           </nav>
           <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
             {authUser && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{authUser.email}</div>}
-            <button onClick={handleLogout} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left' }}>← Sign Out</button>
+            <button onClick={handleLogout} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left' }}>Sign Out</button>
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 8 }}>GlowBook Studio v1.0</div>
           </div>
         </div>
@@ -2226,7 +2221,13 @@ button:hover:not(:disabled) { filter: brightness(1.05); } tr:hover { background:
           </div>
         </header>
         <main style={{ padding: bp === 'desktop' ? 32 : bp === 'tablet' ? 24 : 16, animation: 'fadeIn 0.3s ease' }}>
-          {loading ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: C.textMuted }}><div style={{ textAlign: 'center' }}><div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Icon name="refresh" size={32} color={C.textMuted} /></div><div style={{ fontSize: 14 }}>Loading…</div></div></div> : <View />}
+          {loading ? <div style={{ padding: 32 }}>
+            <div className="skeleton" style={{ width: '40%', height: 24, marginBottom: 20 }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+              {[0,1,2].map(i => <div key={i} style={{ background: '#fff', borderRadius: 14, padding: 20, border: `1px solid ${C.border}` }}><div className="skeleton" style={{ width: '50%', height: 14, marginBottom: 10 }} /><div className="skeleton" style={{ width: '35%', height: 24 }} /></div>)}
+            </div>
+            {[0,1,2,3].map(i => <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '14px 20px', marginBottom: 8, display: 'flex', gap: 14, alignItems: 'center', border: `1px solid ${C.border}` }}><div className="skeleton" style={{ width: 40, height: 40, borderRadius: '50%' }} /><div style={{ flex: 1 }}><div className="skeleton" style={{ width: '50%', height: 14, marginBottom: 6 }} /><div className="skeleton" style={{ width: '30%', height: 12 }} /></div><div className="skeleton" style={{ width: 70, height: 24, borderRadius: 20 }} /></div>)}
+          </div> : <div key={page} className="page-in"><View /></div>}
         </main>
       </div>
 
