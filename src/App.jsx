@@ -435,39 +435,82 @@ function BlockTimeModal({ staffMember, blockedTimes, onAdd, onRemove, onClose })
   )
 }
 
-function ServiceModal({ service, branchId, onSave, onClose }) {
+const SERVICE_SUGGESTIONS = {
+  Hair: ['Silk Press', 'Blow Dry', 'Hair Cut', 'Trim', 'Relaxer', 'Hair Coloring', 'Natural Hair Treatment', 'Wash & Set', 'Loc Maintenance', 'Twist Out', 'Deep Conditioning'],
+  Braids: ['Box Braids', 'Cornrows', 'Knotless Braids', 'Lemonade Braids', 'Crochet Braids', 'Fulani Braids', 'Passion Twists', 'Faux Locs', 'Senegalese Twists', 'Ghana Braids', 'Feed-in Braids'],
+  Nails: ['Gel Manicure', 'Acrylic Full Set', 'Pedicure Deluxe', 'Nail Art', 'Gel Pedicure', 'Acrylic Fill', 'Nail Removal', 'French Tips', 'Press-On Nails'],
+  Skincare: ['Facial Classic', 'Deep Cleansing Facial', 'Chemical Peel', 'Microdermabrasion', 'LED Therapy', 'Acne Treatment', 'Anti-Aging Facial'],
+  Spa: ['Full Body Massage', 'Back & Shoulder Massage', 'Hot Stone Massage', 'Aromatherapy Massage', 'Body Scrub', 'Body Wrap', 'Foot Massage'],
+  Makeup: ['Makeup Application', 'Bridal Makeup', 'Photo Shoot Makeup', 'Makeup Lesson', 'Evening Glam', 'Natural/Everyday Look'],
+  Lashes: ['Classic Lash Extensions', 'Volume Lash Extensions', 'Lash Lift & Tint', 'Lash Fill', 'Lash Removal', 'Mega Volume'],
+  Barber: ['Haircut', 'Fade', 'Lineup', 'Beard Trim', 'Hot Towel Shave', 'Hair & Beard Combo', 'Kid\'s Cut'],
+  Wigs: ['Wig Install', 'Wig Customization', 'Frontal Wig Install', 'Closure Install', 'Wig Wash & Style', 'Wig Revamp'],
+  Other: [],
+}
+const SERVICE_CATEGORIES = Object.keys(SERVICE_SUGGESTIONS)
+
+function ServiceModal({ service, branchId, onSave, onClose, existingAddons }) {
   const [form, setForm] = useState({
     name: service?.name || '',
     category: service?.category || 'Hair',
     price: service?.price || '',
-    price_max: service?.price_max || '',
     duration: service?.duration || 60,
     duration_max: service?.duration_max || '',
     description: service?.description || '',
-    deposit: service?.deposit || 0,
     is_active: service?.is_active ?? true,
   })
+  const [images, setImages] = useState(service?.images || [])
+  const [addons, setAddons] = useState(existingAddons || [])
+  const [newAddon, setNewAddon] = useState({ name: '', price: '' })
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(!service)
   const up = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  const categories = ['Hair', 'Braids', 'Nails', 'Skincare', 'Spa', 'Makeup', 'Lashes', 'Barber', 'Other']
+  const suggestions = SERVICE_SUGGESTIONS[form.category] || []
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { alert('Max 5MB per image'); return }
+    if (images.length >= 3) { alert('Maximum 3 images per service'); return }
+    setUploading(true)
+    try {
+      const url = await uploadImage('service-images', branchId, file)
+      setImages(prev => [...prev, url])
+    } catch (err) { alert('Upload failed: ' + err.message) }
+    setUploading(false)
+  }
+
+  const removeImage = (idx) => setImages(prev => prev.filter((_, i) => i !== idx))
+
+  const addAddon = () => {
+    if (!newAddon.name || !newAddon.price) return
+    setAddons(prev => [...prev, { name: newAddon.name, price: parseFloat(newAddon.price), is_active: true }])
+    setNewAddon({ name: '', price: '' })
+  }
+
+  const removeAddon = (idx) => setAddons(prev => prev.filter((_, i) => i !== idx))
 
   const handleSubmit = async () => {
     if (!form.name || !form.price) return
     setSaving(true)
     const data = {
-      ...form,
+      name: form.name,
+      category: form.category,
       price: parseFloat(form.price),
-      price_max: form.price_max ? parseFloat(form.price_max) : null,
-      duration: parseInt(form.duration),
+      duration: parseInt(form.duration) || 60,
       duration_max: form.duration_max ? parseInt(form.duration_max) : null,
-      deposit: parseFloat(form.deposit) || 0,
+      description: form.description,
+      deposit: 100,
+      images,
+      is_active: form.is_active,
       branch_id: branchId,
     }
     if (service?.id) {
-      await onSave({ ...data, id: service.id }, 'update')
+      await onSave({ ...data, id: service.id, addons }, 'update')
     } else {
-      await onSave(data, 'create')
+      await onSave({ ...data, addons }, 'create')
     }
     setSaving(false)
   }
@@ -476,17 +519,46 @@ function ServiceModal({ service, branchId, onSave, onClose }) {
 
   return (
     <Modal title={service ? 'Edit Service' : 'Add New Service'} onClose={onClose}>
+      {/* Category Selection */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 6 }}>Category *</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {SERVICE_CATEGORIES.map(cat => (
+            <button key={cat} onClick={() => { up('category', cat); if (!service) { up('name', ''); setShowSuggestions(true) } }}
+              style={{ padding: '6px 14px', borderRadius: 20, border: `1.5px solid ${form.category === cat ? C.accent : C.border}`, background: form.category === cat ? C.accentLight : 'transparent', color: form.category === cat ? C.accent : C.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', transition: 'all .15s' }}>
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Service Name — suggestions or custom */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 6 }}>Service Name *</label>
+        {showSuggestions && suggestions.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: C.textLight, marginBottom: 6 }}>Quick pick or type your own:</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {suggestions.map(s => (
+                <button key={s} onClick={() => { up('name', s); setShowSuggestions(false) }}
+                  style={{ padding: '5px 12px', borderRadius: 8, border: `1px solid ${form.name === s ? C.accent : C.border}`, background: form.name === s ? C.accentLight : '#fff', color: form.name === s ? C.accent : C.text, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans', transition: 'all .15s' }}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <input value={form.name} onChange={e => { up('name', e.target.value); setShowSuggestions(false) }} placeholder="Type service name..." style={iSt}
+          onFocus={() => { if (!form.name && suggestions.length) setShowSuggestions(true) }} />
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div style={{ gridColumn: 'span 2' }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Service Name *</label>
-          <input value={form.name} onChange={e => up('name', e.target.value)} placeholder="e.g. Box Braids" style={iSt} />
-        </div>
+        {/* Price */}
         <div>
-          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Category</label>
-          <select value={form.category} onChange={e => up('category', e.target.value)} style={iSt}>
-            {categories.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Price (K) *</label>
+          <input type="number" value={form.price} onChange={e => up('price', e.target.value)} placeholder="e.g. 350" style={iSt} />
         </div>
+        {/* Status */}
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Status</label>
           <select value={form.is_active ? 'active' : 'inactive'} onChange={e => up('is_active', e.target.value === 'active')} style={iSt}>
@@ -494,31 +566,76 @@ function ServiceModal({ service, branchId, onSave, onClose }) {
             <option value="inactive">Inactive</option>
           </select>
         </div>
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Price (K) *</label>
-          <input type="number" value={form.price} onChange={e => up('price', e.target.value)} placeholder="150" style={iSt} />
-        </div>
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Max Price (optional)</label>
-          <input type="number" value={form.price_max} onChange={e => up('price_max', e.target.value)} placeholder="For price range" style={iSt} />
-        </div>
+        {/* Duration min */}
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Duration (mins) *</label>
           <input type="number" value={form.duration} onChange={e => up('duration', e.target.value)} placeholder="60" style={iSt} />
         </div>
+        {/* Duration max */}
         <div>
-          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Max Duration (optional)</label>
-          <input type="number" value={form.duration_max} onChange={e => up('duration_max', e.target.value)} placeholder="For duration range" style={iSt} />
-        </div>
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Deposit Required (K)</label>
-          <input type="number" value={form.deposit} onChange={e => up('deposit', e.target.value)} placeholder="0" style={iSt} />
-        </div>
-        <div style={{ gridColumn: 'span 2' }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Description</label>
-          <textarea value={form.description} onChange={e => up('description', e.target.value)} placeholder="Describe the service..." rows={3} style={{ ...iSt, resize: 'vertical' }} />
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Max Duration (mins)</label>
+          <input type="number" value={form.duration_max} onChange={e => up('duration_max', e.target.value)} placeholder="Optional" style={iSt} />
         </div>
       </div>
+
+      {/* Description */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Description</label>
+        <textarea value={form.description} onChange={e => up('description', e.target.value)} placeholder="Describe what's included in this service..." rows={3} style={{ ...iSt, resize: 'vertical' }} />
+      </div>
+
+      {/* Images (up to 3) */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 6 }}>Photos (up to 3)</label>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {images.map((url, i) => (
+            <div key={i} style={{ position: 'relative', width: 90, height: 90, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+              <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <button onClick={() => removeImage(i)} style={{ position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,.6)', border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>×</button>
+            </div>
+          ))}
+          {images.length < 3 && (
+            <div onClick={() => document.getElementById('svc-img-upload').click()}
+              style={{ width: 90, height: 90, borderRadius: 10, border: `2px dashed ${C.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: C.textLight, transition: 'border-color .2s' }}>
+              {uploading ? (
+                <div style={{ width: 20, height: 20, border: `2px solid ${C.border}`, borderTopColor: C.accent, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              ) : (
+                <><span style={{ fontSize: 24, lineHeight: 1 }}>+</span><span style={{ fontSize: 10, marginTop: 2 }}>Add Photo</span></>
+              )}
+            </div>
+          )}
+        </div>
+        <input id="svc-img-upload" type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageUpload} />
+      </div>
+
+      {/* Add-ons */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 6 }}>Add-ons (extras clients can add)</label>
+        {addons.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            {addons.map((a, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: C.bg, borderRadius: 8, marginBottom: 4, border: `1px solid ${C.border}` }}>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: C.text }}>{a.name}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>+K{a.price}</span>
+                <button onClick={() => removeAddon(i)} style={{ background: 'none', border: 'none', color: C.danger, cursor: 'pointer', fontSize: 16, padding: 0, lineHeight: 1 }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={newAddon.name} onChange={e => setNewAddon(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Extra Length" style={{ ...iSt, flex: 2, marginBottom: 0 }} />
+          <input type="number" value={newAddon.price} onChange={e => setNewAddon(p => ({ ...p, price: e.target.value }))} placeholder="Price" style={{ ...iSt, flex: 1, marginBottom: 0 }} />
+          <button onClick={addAddon} disabled={!newAddon.name || !newAddon.price}
+            style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: newAddon.name && newAddon.price ? C.accent : C.border, color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans', whiteSpace: 'nowrap' }}>+ Add</button>
+        </div>
+      </div>
+
+      {/* Deposit (read-only) */}
+      <div style={{ padding: '10px 14px', borderRadius: 8, background: C.goldLight, border: `1px solid ${C.gold}20`, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, color: C.gold, fontWeight: 600 }}>💰 Deposit: K100</span>
+        <span style={{ fontSize: 11, color: C.textMuted }}>(fixed for all bookings)</span>
+      </div>
+
       <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
         <Btn onClick={handleSubmit} disabled={saving || !form.name || !form.price}>{saving ? 'Saving...' : service ? 'Update Service' : 'Add Service'}</Btn>
         <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
@@ -776,6 +893,7 @@ export default function App() {
   const [bookings, setBookings] = useState([])
   const [staff, setStaff] = useState([])
   const [services, setServices] = useState([])
+  const [serviceAddons, setServiceAddons] = useState([])
   const [clients, setClients] = useState([])
   const [reviews, setReviews] = useState([])
   const [blockedTimes, setBlockedTimes] = useState([])
@@ -828,21 +946,23 @@ export default function App() {
     if (!branchId) return
     setLoading(true)
     try {
-      const [branchRes, bookingRes, staffRes, serviceRes, clientRes, reviewRes, branchesRes, blockedRes, waitlistRes] = await Promise.all([
+      const [branchRes, bookingRes, staffRes, serviceRes, clientRes, reviewRes, branchesRes, blockedRes, waitlistRes, addonsRes] = await Promise.all([
         supabase.from('branches').select('*').eq('id', branchId).single(),
         supabase.from('bookings').select('*').eq('branch_id', branchId).order('booking_date', { ascending: false }),
         supabase.from('staff').select('*').eq('branch_id', branchId).order('name'),
-        supabase.from('services').select('*').order('category, name'),
+        supabase.from('services').select('*').eq('branch_id', branchId).order('category, name'),
         supabase.from('clients').select('*').order('name'),
         supabase.from('reviews').select('*').eq('branch_id', branchId).order('created_at', { ascending: false }),
         supabase.from('branches').select('id, name'),
         supabase.from('staff_blocked_times').select('*').eq('branch_id', branchId).gte('block_date', todayStr()).order('block_date'),
         supabase.from('waitlist').select('*').eq('branch_id', branchId).eq('status', 'waiting').order('preferred_date'),
+        supabase.from('service_addons').select('*'),
       ])
       setBranch(branchRes.data); setBookings(bookingRes.data || []); setStaff(staffRes.data || [])
       setServices(serviceRes.data || []); setClients(clientRes.data || []); setReviews(reviewRes.data || [])
       setBranches(branchesRes.data || [])
       setBlockedTimes(blockedRes.data || []); setWaitlist(waitlistRes.data || [])
+      setServiceAddons(addonsRes.data || [])
     } catch (e) { console.error(e) }
     setLoading(false)
   }, [branchId])
@@ -900,12 +1020,23 @@ export default function App() {
     showToast(id ? 'Staff updated' : 'Staff added'); fetchAll(); setModal(null)
   }
   const saveService = async (data, action) => {
+    const { addons, ...serviceData } = data
+    let serviceId = data.id
     if (action === 'update') {
-      const { error } = await supabase.from('services').update({ ...data, updated_at: new Date().toISOString() }).eq('id', data.id)
+      const { error } = await supabase.from('services').update({ ...serviceData, updated_at: new Date().toISOString() }).eq('id', data.id)
       if (error) { showToast(error.message, 'error'); return }
     } else {
-      const { error } = await supabase.from('services').insert(data)
+      const { data: newSvc, error } = await supabase.from('services').insert(serviceData).select('id').single()
       if (error) { showToast(error.message, 'error'); return }
+      serviceId = newSvc.id
+    }
+    // Sync addons: delete existing, re-insert
+    if (serviceId && addons) {
+      await supabase.from('service_addons').delete().eq('service_id', serviceId)
+      if (addons.length > 0) {
+        const addonRows = addons.map(a => ({ service_id: serviceId, name: a.name, price: a.price, is_active: a.is_active ?? true }))
+        await supabase.from('service_addons').insert(addonRows)
+      }
     }
     showToast(action === 'update' ? 'Service updated' : 'Service added'); fetchAll(); setModal(null)
   }
@@ -935,10 +1066,10 @@ export default function App() {
     showToast('Time off removed'); fetchAll()
   }
   // Service image
-  const updateServiceImage = async (id, url) => {
-    const { error } = await supabase.from('services').update({ image: url, updated_at: new Date().toISOString() }).eq('id', id)
+  const updateServiceImages = async (id, images) => {
+    const { error } = await supabase.from('services').update({ images, updated_at: new Date().toISOString() }).eq('id', id)
     if (error) showToast(error.message, 'error')
-    else { showToast('Image updated'); fetchAll() }
+    else { showToast('Images updated'); fetchAll() }
   }
   // Waitlist
   const dismissWaitlist = async (id) => {
@@ -1091,7 +1222,7 @@ export default function App() {
               <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Date', 'Time', 'Client', 'Service', 'Staff', 'Amount', 'Deposit', 'Notes', 'Status', 'Actions'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8 }}>{h}</th>)}</tr></thead>
               <tbody>{filtered.map(b => {
                 const cl = getClient(b.client_id), sv = getService(b.service_id), st = getStaffMember(b.staff_id)
-                const dep = sv?.deposit || 0
+                const dep = 100
                 return (
                   <tr key={b.id} style={{ borderBottom: `1px solid ${C.border}` }}>
                     <td style={{ padding: '12px 8px', fontWeight: 500 }}>{fmtDate(b.booking_date)}</td>
@@ -1100,7 +1231,7 @@ export default function App() {
                     <td style={{ padding: '12px 8px' }}>{sv?.name || '—'}</td>
                     <td style={{ padding: '12px 8px' }}>{st?.name || '—'}</td>
                     <td style={{ padding: '12px 8px', fontWeight: 600 }}>{fmt(b.total_amount)}{b.discount_amount > 0 && <div style={{ fontSize: 10, color: C.gold }}>-{fmt(b.discount_amount)} pts</div>}</td>
-                    <td style={{ padding: '12px 8px' }}>{b.deposit_paid ? <span style={{ color: C.success, fontWeight: 600, fontSize: 11 }}>✓ Paid</span> : dep > 0 ? <button onClick={() => updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: dep })} style={{ padding: '2px 8px', borderRadius: 4, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', fontSize: 11, color: C.accent, fontFamily: 'DM Sans' }}>Mark Paid</button> : <span style={{ color: C.textLight, fontSize: 11 }}>—</span>}</td>
+                    <td style={{ padding: '12px 8px' }}>{b.deposit_paid ? <span style={{ color: C.success, fontWeight: 600, fontSize: 11 }}>✓ K{b.deposit_amount || 100}</span> : <button onClick={() => updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: 100 })} style={{ padding: '2px 8px', borderRadius: 4, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', fontSize: 11, color: C.accent, fontFamily: 'DM Sans' }}>Mark Paid</button>}</td>
                     <td style={{ padding: '12px 8px', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: C.textMuted }} title={b.client_notes || ''}>{b.client_notes || '—'}</td>
                     <td style={{ padding: '12px 8px' }}><Badge status={b.status} /></td>
                     <td style={{ padding: '12px 8px' }}>
@@ -1377,6 +1508,7 @@ export default function App() {
   // ═════ SERVICES ═════
   function ServicesView() {
     const cats = [...new Set(services.map(s => s.category))]
+    const getAddons = (svcId) => serviceAddons.filter(a => a.service_id === svcId)
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -1389,27 +1521,29 @@ export default function App() {
           <div key={cat} style={{ marginBottom: 28 }}>
             <h3 style={{ fontSize: 18, fontFamily: 'Fraunces', color: C.text, marginBottom: 12, paddingBottom: 6, borderBottom: `2px solid ${C.accentLight}` }}>{cat}</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-              {services.filter(s => s.category === cat).map(s => (
-                <Card key={s.id} style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setModal({ type: 'editService', service: s })}>
-                  {s.image && <img src={s.image} alt="" style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 10, marginBottom: 10 }} />}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                    <div><div style={{ fontWeight: 700, fontSize: 15, color: C.text, fontFamily: 'Fraunces' }}>{s.name}</div><div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{s.duration}min{s.duration_max ? ` – ${s.duration_max}min` : ''}</div></div>
-                    <div style={{ textAlign: 'right' }}><div style={{ fontWeight: 700, fontSize: 17, color: C.accent }}>{fmt(s.price)}</div>{s.price_max && <div style={{ fontSize: 11, color: C.textMuted }}>up to {fmt(s.price_max)}</div>}</div>
-                  </div>
-                  {s.description && <p style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.4, margin: '8px 0' }}>{s.description}</p>}
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      {s.deposit > 0 && <div style={{ fontSize: 11, fontWeight: 600, color: C.gold, padding: '3px 8px', borderRadius: 8, background: C.goldLight, display: 'inline-block' }}>Deposit: {fmt(s.deposit)}</div>}
+              {services.filter(s => s.category === cat).map(s => {
+                const sAddons = getAddons(s.id)
+                const thumb = s.images?.[0]
+                return (
+                  <Card key={s.id} style={{ position: 'relative', cursor: 'pointer', overflow: 'hidden' }} onClick={() => setModal({ type: 'editService', service: s })}>
+                    {thumb && <img src={thumb} alt="" style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 10, marginBottom: 10 }} />}
+                    {s.images?.length > 1 && <div style={{ position: 'absolute', top: thumb ? 102 : 8, right: 12, background: 'rgba(0,0,0,.6)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10 }}>+{s.images.length - 1} more</div>}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                      <div><div style={{ fontWeight: 700, fontSize: 15, color: C.text, fontFamily: 'Fraunces' }}>{s.name}</div><div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{s.duration}min{s.duration_max ? ` – ${s.duration_max}min` : ''}</div></div>
+                      <div style={{ textAlign: 'right' }}><div style={{ fontWeight: 700, fontSize: 17, color: C.accent }}>{fmt(s.price)}</div></div>
                     </div>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
-                      <ImageUpload currentUrl={s.image} bucket="services" folder={s.id} size={28}
-                        onUpload={url => updateServiceImage(s.id, url)} onRemove={() => updateServiceImage(s.id, null)} />
-                      <button onClick={() => toggleServiceActive(s.id, s.is_active)} style={{ background: s.is_active ? C.successBg : C.dangerBg, border: 'none', color: s.is_active ? C.success : C.danger, borderRadius: 6, padding: '4px 8px', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>{s.is_active ? 'Active' : 'Inactive'}</button>
+                    {s.description && <p style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.4, margin: '6px 0' }}>{s.description}</p>}
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 6 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: C.gold, padding: '3px 8px', borderRadius: 8, background: C.goldLight }}>Deposit: K100</div>
+                      {sAddons.length > 0 && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent, padding: '3px 8px', borderRadius: 8, background: C.accentLight }}>{sAddons.length} add-on{sAddons.length > 1 ? 's' : ''}</div>}
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => toggleServiceActive(s.id, s.is_active)} style={{ background: s.is_active ? C.successBg : C.dangerBg, border: 'none', color: s.is_active ? C.success : C.danger, borderRadius: 6, padding: '4px 8px', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>{s.is_active ? 'Active' : 'Inactive'}</button>
+                      </div>
                     </div>
-                  </div>
-                  <span style={{ position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: '50%', background: s.is_active ? C.success : C.danger }} />
-                </Card>
-              ))}
+                    <span style={{ position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: '50%', background: s.is_active ? C.success : C.danger }} />
+                  </Card>
+                )
+              })}
             </div>
           </div>
         ))}
@@ -1662,8 +1796,8 @@ export default function App() {
     if (type === 'addStaff') return <StaffModal onSave={saveStaff} onClose={() => setModal(null)} />
     if (type === 'editStaff') return <StaffModal staffMember={modal.staffMember} onSave={saveStaff} onClose={() => setModal(null)} />
     if (type === 'editProfile') return <ProfileModal branch={branch} onSave={updateBranch} onClose={() => setModal(null)} />
-    if (type === 'addService') return <ServiceModal branchId={branchId} onSave={saveService} onClose={() => setModal(null)} />
-    if (type === 'editService') return <ServiceModal service={modal.service} branchId={branchId} onSave={saveService} onClose={() => setModal(null)} />
+    if (type === 'addService') return <ServiceModal branchId={branchId} onSave={saveService} onClose={() => setModal(null)} existingAddons={[]} />
+    if (type === 'editService') return <ServiceModal service={modal.service} branchId={branchId} onSave={saveService} onClose={() => setModal(null)} existingAddons={serviceAddons.filter(a => a.service_id === modal.service?.id)} />
     if (type === 'blockTime') return <BlockTimeModal staffMember={modal.staffMember} blockedTimes={blockedTimes} onAdd={addBlockedTime} onRemove={removeBlockedTime} onClose={() => setModal(null)} />
     if (type === 'walkinBooking') {
       return <WalkinModal services={services} staff={staff} branch={branch} onSave={async (data) => {
@@ -1684,7 +1818,7 @@ export default function App() {
       return (
         <Modal title="Booking Details" onClose={() => setModal(null)}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            {[['Date', fmtDate(b.booking_date)], ['Time', fmtTime(b.booking_time)], ['Client', cl?.name || (b.walk_in_name || '—')], ['Service', sv?.name || '—'], ['Staff', st?.name || '—'], ['Duration', `${b.duration} min`], ['Amount', fmt(b.total_amount)], ['Fee', fmt(b.platform_fee)], ['Status', (SC[b.status]?.label || b.status)], ['Deposit', b.deposit_paid ? `Yes — ${fmt(b.deposit_amount)}` : (sv?.deposit > 0 ? `Required: ${fmt(sv.deposit)}` : 'N/A')], ['Points Used', b.points_used > 0 ? `${b.points_used} pts (-${fmt(b.discount_amount)})` : '—'], ['Type', b.is_walk_in ? 'Walk-in' : 'Online']].map(([l, v]) => <div key={l}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>{l}</div><div style={{ fontSize: 14, fontWeight: 500, color: C.text }}>{v}</div></div>)}
+            {[['Date', fmtDate(b.booking_date)], ['Time', fmtTime(b.booking_time)], ['Client', cl?.name || (b.walk_in_name || '—')], ['Service', sv?.name || '—'], ['Staff', st?.name || '—'], ['Duration', `${b.duration} min`], ['Amount', fmt(b.total_amount)], ['Fee', fmt(b.platform_fee)], ['Status', (SC[b.status]?.label || b.status)], ['Deposit', b.deposit_paid ? `Yes — ${fmt(b.deposit_amount || 100)}` : `Required: K100`], ['Points Used', b.points_used > 0 ? `${b.points_used} pts (-${fmt(b.discount_amount)})` : '—'], ['Type', b.is_walk_in ? 'Walk-in' : 'Online']].map(([l, v]) => <div key={l}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>{l}</div><div style={{ fontSize: 14, fontWeight: 500, color: C.text }}>{v}</div></div>)}
           </div>
           {b.client_notes && <div style={{ marginTop: 14, padding: 12, borderRadius: 8, background: C.bg }}><strong style={{ fontSize: 11, color: C.textMuted }}>CLIENT NOTES:</strong><p style={{ margin: '4px 0 0', fontSize: 13 }}>{b.client_notes}</p></div>}
           {b.cancellation_reason && <div style={{ marginTop: 10, padding: 12, borderRadius: 8, background: '#fce4ec' }}><strong style={{ fontSize: 11, color: '#c62828' }}>CANCELLATION REASON:</strong><p style={{ margin: '4px 0 0', fontSize: 13, color: '#c62828' }}>{b.cancellation_reason}</p></div>}
@@ -1697,7 +1831,7 @@ export default function App() {
               <Btn onClick={() => { updateBooking(b.id, { status: 'no_show' }); setModal(null); showToast('Marked as no-show') }} style={{ background: '#fce4ec', color: '#880e4f', border: '1px solid #880e4f' }}>No-show</Btn>
               <Btn variant="danger" onClick={() => { setModal({ type: 'cancelBooking', booking: b }) }}>Cancel</Btn>
             </>}
-            {!b.deposit_paid && sv?.deposit > 0 && !['cancelled','no_show'].includes(b.status) && <Btn onClick={() => { updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: sv.deposit }); setModal(null); showToast('Deposit marked as paid') }} style={{ background: C.bg, color: C.gold, border: `1px solid ${C.gold}` }}>Mark Deposit Paid</Btn>}
+            {!b.deposit_paid && !['cancelled','no_show'].includes(b.status) && <Btn onClick={() => { updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: 100 }); setModal(null); showToast('Deposit marked as paid') }} style={{ background: C.bg, color: C.gold, border: `1px solid ${C.gold}` }}>Mark Deposit Paid</Btn>}
             {b.status === 'completed' && branch?.sms_enabled && <Btn onClick={() => { sendReviewRequest(b.id); setModal(null) }} style={{ background: C.bg, color: C.accent, border: `1px solid ${C.accent}` }}>📱 Request Review SMS</Btn>}
           </div>
         </Modal>
@@ -1729,8 +1863,6 @@ export default function App() {
     const [withdrawForm, setWithdrawForm] = useState({ amount: '', phone: '', name: '', network: 'mtn' })
     const [withdrawing, setWithdrawing] = useState(false)
     const [showWithdraw, setShowWithdraw] = useState(false)
-    const [confirmAction, setConfirmAction] = useState(null)
-    const [processing, setProcessing] = useState(null)
 
     const SUPABASE_URL = supabase.supabaseUrl || 'https://yvupvtnpnrelbxgmwguy.supabase.co'
 
@@ -1769,24 +1901,6 @@ export default function App() {
         else { showToast('Withdrawal request submitted! You will be paid manually within 24h.'); setShowWithdraw(false); setWithdrawForm({ amount: '', phone: '', name: '', network: 'mtn' }); loadWallet() }
       } catch (e) { showToast('Failed: ' + e.message, 'error') }
       setWithdrawing(false)
-    }
-
-    const processWithdrawal = async (withdrawalId, action) => {
-      setProcessing(withdrawalId)
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        const apiKey = supabase.supabaseKey || ''
-        const res = await fetch(SUPABASE_URL + '/functions/v1/wallet', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session?.access_token || ''), 'apikey': apiKey },
-          body: JSON.stringify({ action: action, branch_id: branch.id, withdrawal_id: withdrawalId })
-        })
-        const data = await res.json()
-        if (data.error) { showToast(data.error, 'error') }
-        else { showToast(action === 'mark_paid' ? 'Withdrawal marked as paid ✓' : 'Withdrawal rejected', action === 'mark_paid' ? 'success' : 'info'); loadWallet() }
-      } catch (e) { showToast('Failed: ' + e.message, 'error') }
-      setProcessing(null)
-      setConfirmAction(null)
     }
 
     if (walletLoading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: C.textMuted }}><div style={{ textAlign: 'center' }}><Icon name="refresh" size={32} color={C.textMuted} /><div style={{ fontSize: 14, marginTop: 8 }}>Loading wallet...</div></div></div>
@@ -1866,7 +1980,7 @@ export default function App() {
           )}
         </Card>
 
-        {/* Pending Payouts — Manual Processing */}
+        {/* Pending Payouts — Status View (read-only for salon owners) */}
         {wds.filter(w => w.status === 'pending' || w.status === 'processing').length > 0 && (
           <Card style={{ marginBottom: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
@@ -1874,63 +1988,18 @@ export default function App() {
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.text }}>Pending Payouts</h3>
             </div>
             <p style={{ margin: '0 0 16px', fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>
-              These withdrawals require manual payment. Send the funds via mobile money, then click <strong>"Mark as Paid"</strong> to confirm.
+              Your withdrawal is being processed by the GlowBook team. You'll receive the funds to your mobile money within 24 hours.
             </p>
             {wds.filter(w => w.status === 'pending' || w.status === 'processing').map(wd => (
               <div key={wd.id} style={{ padding: 16, background: C.bg, borderRadius: 12, marginBottom: 10, border: `1.5px solid ${C.border}` }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 180 }}>
                     <div style={{ fontSize: 22, fontWeight: 700, color: C.text, fontFamily: 'Fraunces', marginBottom: 4 }}>{fmt(wd.amount)}</div>
                     <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 2 }}>📱 <strong>{wd.withdraw_to_phone}</strong> ({(wd.network || 'mobile').toUpperCase()})</div>
                     {wd.withdraw_to_name && <div style={{ fontSize: 12, color: C.textMuted }}>👤 {wd.withdraw_to_name}</div>}
                     <div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>Requested {new Date(wd.created_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: '#fff3e0', color: '#e65100', textTransform: 'uppercase' }}>Awaiting Manual Payment</span>
-                    {confirmAction?.id === wd.id ? (
-                      <div style={{ padding: 14, background: C.white, borderRadius: 10, border: `1.5px solid ${confirmAction.type === 'mark_paid' ? C.success : C.danger}`, minWidth: 240 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 6 }}>
-                          {confirmAction.type === 'mark_paid' ? '✅ Confirm Payment Sent' : '❌ Confirm Rejection'}
-                        </div>
-                        <p style={{ fontSize: 12, color: C.textMuted, margin: '0 0 12px', lineHeight: 1.5 }}>
-                          {confirmAction.type === 'mark_paid'
-                            ? `Have you already sent K${parseFloat(wd.amount).toFixed(2)} to ${wd.withdraw_to_phone} via ${(wd.network || 'mobile money').toUpperCase()}?`
-                            : `This will reject the payout of K${parseFloat(wd.amount).toFixed(2)} and return the funds to the wallet balance.`
-                          }
-                        </p>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button
-                            disabled={processing === wd.id}
-                            onClick={() => processWithdrawal(wd.id, confirmAction.type)}
-                            style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: confirmAction.type === 'mark_paid' ? C.success : C.danger, color: C.white, fontSize: 12, fontWeight: 700, cursor: processing === wd.id ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', opacity: processing === wd.id ? 0.6 : 1 }}
-                          >
-                            {processing === wd.id ? 'Processing...' : confirmAction.type === 'mark_paid' ? 'Yes, I\'ve Paid' : 'Yes, Reject'}
-                          </button>
-                          <button
-                            onClick={() => setConfirmAction(null)}
-                            style={{ padding: '8px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, background: C.white, color: C.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button
-                          onClick={() => setConfirmAction({ id: wd.id, type: 'mark_paid', wd })}
-                          style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: C.success, color: C.white, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'DM Sans', display: 'flex', alignItems: 'center', gap: 5 }}
-                        >
-                          ✓ Mark as Paid
-                        </button>
-                        <button
-                          onClick={() => setConfirmAction({ id: wd.id, type: 'reject', wd })}
-                          style={{ padding: '8px 16px', borderRadius: 8, border: `1.5px solid ${C.danger}`, background: 'transparent', color: C.danger, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '6px 14px', borderRadius: 20, background: '#fff3e0', color: '#e65100', textTransform: 'uppercase' }}>⏳ Awaiting Payment</span>
                 </div>
               </div>
             ))}
