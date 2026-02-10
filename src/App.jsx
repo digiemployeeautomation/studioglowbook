@@ -1783,7 +1783,64 @@ export default function App() {
             </div>
           )}
         </Card>
+
+        {/* Suggestion Box */}
+        <StudioSuggestionBox branch={branch} showToast={showToast} />
       </div>
+    )
+  }
+
+  function StudioSuggestionBox({ branch, showToast: toast }) {
+    const [open, setOpen] = useState(false)
+    const [msg, setMsg] = useState('')
+    const [cat, setCat] = useState('general')
+    const [sending, setSending] = useState(false)
+    const [sent, setSent] = useState(false)
+    const cats = ['general', 'feature request', 'bug report', 'complaint', 'compliment']
+    const iSt = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', background: '#fff', color: C.text }
+
+    const submit = async () => {
+      if (!msg.trim()) return
+      setSending(true)
+      const { error } = await supabase.from('suggestions').insert({ source: 'salon', author_name: branch?.name || null, author_email: branch?.owner_email || null, branch_id: branch?.id || null, category: cat, message: msg.trim() })
+      setSending(false)
+      if (error) { toast(error.message, 'error'); return }
+      setSent(true); setMsg('')
+      setTimeout(() => { setSent(false); setOpen(false) }, 2500)
+      toast('Thanks for your feedback! 💬')
+    }
+
+    if (sent) return (
+      <Card style={{ marginTop: 20, textAlign: 'center', padding: '32px 20px' }}>
+        <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Thank you!</div>
+        <div style={{ fontSize: 13, color: C.textMuted, marginTop: 4 }}>Your suggestion has been submitted to GlowBook</div>
+      </Card>
+    )
+
+    return (
+      <Card title="💡 Suggestion Box" style={{ marginTop: 20 }}>
+        {!open ? (
+          <div>
+            <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 14, lineHeight: 1.5 }}>Have ideas on how to improve GlowBook? We'd love to hear from you.</p>
+            <Btn variant="ghost" onClick={() => setOpen(true)}>Share a Suggestion →</Btn>
+          </div>
+        ) : (
+          <div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 6 }}>Category</label>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {cats.map(c => <button key={c} onClick={() => setCat(c)} style={{ padding: '5px 12px', borderRadius: 20, border: `1.5px solid ${cat === c ? C.accent : C.border}`, background: cat === c ? C.accentLight : 'transparent', color: cat === c ? C.accent : C.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', textTransform: 'capitalize' }}>{c}</button>)}
+              </div>
+            </div>
+            <textarea value={msg} onChange={e => setMsg(e.target.value)} placeholder="Tell us what you'd like to see improved, added, or fixed..." rows={4} style={{ ...iSt, marginBottom: 12, resize: 'vertical', minHeight: 100 }} />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Btn variant="ghost" onClick={() => setOpen(false)}>Cancel</Btn>
+              <Btn onClick={submit} disabled={sending || !msg.trim()}>{sending ? 'Sending...' : 'Submit'}</Btn>
+            </div>
+          </div>
+        )}
+      </Card>
     )
   }
 
