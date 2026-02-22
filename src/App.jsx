@@ -1194,7 +1194,6 @@ export default function App() {
               <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Date', 'Time', 'Client', 'Service', 'Staff', 'Amount', 'Deposit', 'Notes', 'Status', 'Actions'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8 }}>{h}</th>)}</tr></thead>
               <tbody>{filtered.map(b => {
                 const cl = getClient(b.client_id), sv = getService(b.service_id), st = getStaffMember(b.staff_id)
-                const dep = 100
                 return (
                   <tr key={b.id} style={{ borderBottom: `1px solid ${C.border}` }}>
                     <td style={{ padding: '12px 8px', fontWeight: 500 }}>{fmtDate(b.booking_date)}</td>
@@ -1711,7 +1710,9 @@ export default function App() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
             <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Hours</div><div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{fmtTime(branch.open_time)} – {fmtTime(branch.close_time)}</div></div>
+            <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Default Deposit</div><div style={{ fontSize: 15, fontWeight: 600, color: C.gold }}>K{branch.default_deposit ?? 100}</div></div>
             <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Status</div><div style={{ display: 'flex', gap: 8 }}><span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: branch.is_active ? C.successBg : C.dangerBg, color: branch.is_active ? C.success : C.danger }}>{branch.is_active ? 'Active' : 'Inactive'}</span><span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: C.pendingBg, color: C.pending }}>{branch.approval_status}</span></div></div>
+            <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Cancellation</div><div style={{ fontSize: 13, color: C.text }}>Free within {branch.cancellation_hours ?? 2}h • Late: {branch.cancellation_fee_percent ?? 0}% • No-show: {branch.no_show_fee_percent ?? 50}%</div></div>
           </div>
           {branch.description && <div style={{ marginBottom: 20 }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>About</div><p style={{ margin: 0, fontSize: 14, color: C.text, lineHeight: 1.5 }}>{branch.description}</p></div>}
           {branch.images?.length > 0 && <div style={{ marginBottom: 20 }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Gallery</div><div style={{ display: 'flex', gap: 10, overflowX: 'auto' }}>{branch.images.map((img, i) => <img key={i} src={img} alt="" style={{ width: 160, height: 110, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />)}</div></div>}
