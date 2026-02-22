@@ -71,9 +71,9 @@ function Btn({ children, variant = 'primary', small, onClick, disabled, style = 
   return <button onClick={onClick} disabled={disabled} className="btn-hover" style={{ ...v[variant], padding: small ? '5px 12px' : '8px 18px', borderRadius: 8, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', opacity: disabled ? 0.5 : 1, transition: 'all 0.15s cubic-bezier(.16,1,.3,1)', whiteSpace: 'nowrap', ...style }}>{children}</button>
 }
 
-function Card({ children, title, action, style = {}, onClick }) {
+function Card({ children, title, action, style = {} }) {
   return (
-    <div className="card-hover" onClick={onClick} style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 24, ...style }}>
+    <div className="card-hover" style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 24, ...style }}>
       {(title || action) && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>{title && <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: C.text, fontFamily: 'Fraunces' }}>{title}</h3>}{action}</div>}
       {children}
     </div>
@@ -332,6 +332,7 @@ function ProfileModal({ branch, onSave, onClose }) {
     description: branch?.description || '', open_time: branch?.open_time || '08:00:00', close_time: branch?.close_time || '17:00:00',
     images: branch?.images || [],
     cancellation_hours: branch?.cancellation_hours ?? 2, cancellation_fee_percent: branch?.cancellation_fee_percent ?? 0, no_show_fee_percent: branch?.no_show_fee_percent ?? 50, slot_interval: branch?.slot_interval ?? 30,
+    default_deposit: branch?.default_deposit ?? 100,
   })
   const up = (k, v) => setForm(p => ({ ...p, [k]: v }))
   return (
@@ -353,8 +354,9 @@ function ProfileModal({ branch, onSave, onClose }) {
           <Input label="Late cancel fee (%)" value={form.cancellation_fee_percent} onChange={v => up('cancellation_fee_percent', parseInt(v) || 0)} type="number" />
           <Input label="No-show fee (%)" value={form.no_show_fee_percent} onChange={v => up('no_show_fee_percent', parseInt(v) || 0)} type="number" />
           <Input label="Booking slot interval (minutes)" value={form.slot_interval} onChange={v => up('slot_interval', parseInt(v) || 30)} options={[{value:15,label:'15 min'},{value:20,label:'20 min'},{value:30,label:'30 min'},{value:45,label:'45 min'},{value:60,label:'60 min'}]} />
+          <Input label="Default Deposit (K)" value={form.default_deposit} onChange={v => up('default_deposit', parseFloat(v) || 0)} type="number" />
         </div>
-        <p style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>Clients can cancel for free up to {form.cancellation_hours}h before. Late: {form.cancellation_fee_percent}% fee. No-show: {form.no_show_fee_percent}% fee.</p>
+        <p style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>Clients can cancel for free up to {form.cancellation_hours}h before. Late: {form.cancellation_fee_percent}% fee. No-show: {form.no_show_fee_percent}% fee. Default deposit: K{form.default_deposit} (can be overridden per service).</p>
       </div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
         <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
@@ -426,6 +428,7 @@ function ServiceModal({ service, branchId, onSave, onClose, existingAddons }) {
     duration_max: service?.duration_max || '',
     description: service?.description || '',
     is_active: service?.is_active ?? true,
+    deposit_amount: service?.deposit_amount ?? '',
   })
   const [images, setImages] = useState(service?.images || [])
   const [addons, setAddons] = useState(existingAddons || [])
@@ -470,7 +473,7 @@ function ServiceModal({ service, branchId, onSave, onClose, existingAddons }) {
       duration: parseInt(form.duration) || 60,
       duration_max: form.duration_max ? parseInt(form.duration_max) : null,
       description: form.description,
-      deposit: 100,
+      deposit_amount: form.deposit_amount ? parseFloat(form.deposit_amount) : null,
       images,
       is_active: form.is_active,
       branch_id: branchId,
@@ -598,10 +601,11 @@ function ServiceModal({ service, branchId, onSave, onClose, existingAddons }) {
         </div>
       </div>
 
-      {/* Deposit (read-only) */}
-      <div style={{ padding: '10px 14px', borderRadius: 8, background: C.goldLight, border: `1px solid ${C.gold}20`, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 13, color: C.gold, fontWeight: 600 }}>Deposit: K100</span>
-        <span style={{ fontSize: 11, color: C.textMuted }}>(fixed for all bookings)</span>
+      {/* Deposit Amount (per-service override) */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Deposit Amount (K)</label>
+        <input type="number" value={form.deposit_amount} onChange={e => up('deposit_amount', e.target.value)} placeholder="Leave empty to use branch default" style={iSt} />
+        <span style={{ fontSize: 11, color: C.textMuted }}>Override deposit for this service. Leave blank to use your branch's default deposit.</span>
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
@@ -1199,7 +1203,7 @@ export default function App() {
                     <td style={{ padding: '12px 8px' }}>{sv?.name || '—'}</td>
                     <td style={{ padding: '12px 8px' }}>{st?.name || '—'}</td>
                     <td style={{ padding: '12px 8px', fontWeight: 600 }}>{fmt(b.total_amount)}{b.discount_amount > 0 && <div style={{ fontSize: 10, color: C.gold }}>-{fmt(b.discount_amount)} pts</div>}</td>
-                    <td style={{ padding: '12px 8px' }}>{b.deposit_paid ? <span style={{ color: C.success, fontWeight: 600, fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 2 }}><Check size={12}/> K{b.deposit_amount || 100}</span> : <button onClick={() => updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: 100 })} style={{ padding: '2px 8px', borderRadius: 4, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', fontSize: 11, color: C.accent, fontFamily: 'DM Sans' }}>Mark Paid</button>}</td>
+                    <td style={{ padding: '12px 8px' }}>{b.deposit_paid ? <span style={{ color: C.success, fontWeight: 600, fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 2 }}><Check size={12}/> K{b.deposit_amount || branch?.default_deposit || 100}</span> : <button onClick={() => updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: b.deposit_amount || branch?.default_deposit || 100 })} style={{ padding: '2px 8px', borderRadius: 4, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', fontSize: 11, color: C.accent, fontFamily: 'DM Sans' }}>Mark Paid</button>}</td>
                     <td style={{ padding: '12px 8px', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: C.textMuted }} title={b.client_notes || ''}>{b.client_notes || '—'}</td>
                     <td style={{ padding: '12px 8px' }}><Badge status={b.status} /></td>
                     <td style={{ padding: '12px 8px' }}>
@@ -1502,7 +1506,7 @@ export default function App() {
                     </div>
                     {s.description && <p style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.4, margin: '6px 0' }}>{s.description}</p>}
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 6 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: C.gold, padding: '3px 8px', borderRadius: 8, background: C.goldLight }}>Deposit: K100</div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: C.gold, padding: '3px 8px', borderRadius: 8, background: C.goldLight }}>Deposit: K{s.deposit_amount || branch?.default_deposit || 100}</div>
                       {sAddons.length > 0 && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent, padding: '3px 8px', borderRadius: 8, background: C.accentLight }}>{sAddons.length} add-on{sAddons.length > 1 ? 's' : ''}</div>}
                       <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                         <button onClick={() => toggleServiceActive(s.id, s.is_active)} style={{ background: s.is_active ? C.successBg : C.dangerBg, border: 'none', color: s.is_active ? C.success : C.danger, borderRadius: 6, padding: '4px 8px', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>{s.is_active ? 'Active' : 'Inactive'}</button>
@@ -1843,7 +1847,7 @@ export default function App() {
       return (
         <Modal title="Booking Details" onClose={() => setModal(null)}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            {[['Date', fmtDate(b.booking_date)], ['Time', fmtTime(b.booking_time)], ['Client', cl?.name || (b.walk_in_name || '—')], ['Service', sv?.name || '—'], ['Staff', st?.name || '—'], ['Duration', `${b.duration} min`], ['Amount', fmt(b.total_amount)], ['Fee', fmt(b.platform_fee)], ['Status', (SC[b.status]?.label || b.status)], ['Deposit', b.deposit_paid ? `Yes — ${fmt(b.deposit_amount || 100)}` : `Required: K100`], ['Points Used', b.points_used > 0 ? `${b.points_used} pts (-${fmt(b.discount_amount)})` : '—'], ['Type', b.is_walk_in ? 'Walk-in' : 'Online']].map(([l, v]) => <div key={l}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>{l}</div><div style={{ fontSize: 14, fontWeight: 500, color: C.text }}>{v}</div></div>)}
+            {[['Date', fmtDate(b.booking_date)], ['Time', fmtTime(b.booking_time)], ['Client', cl?.name || (b.walk_in_name || '—')], ['Service', sv?.name || '—'], ['Staff', st?.name || '—'], ['Duration', `${b.duration} min`], ['Amount', fmt(b.total_amount)], ['Fee', fmt(b.platform_fee)], ['Status', (SC[b.status]?.label || b.status)], ['Deposit', b.deposit_paid ? `Yes — ${fmt(b.deposit_amount || branch?.default_deposit || 100)}` : `Required: K${sv?.deposit_amount || branch?.default_deposit || 100}`], ['Points Used', b.points_used > 0 ? `${b.points_used} pts (-${fmt(b.discount_amount)})` : '—'], ['Type', b.is_walk_in ? 'Walk-in' : 'Online']].map(([l, v]) => <div key={l}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>{l}</div><div style={{ fontSize: 14, fontWeight: 500, color: C.text }}>{v}</div></div>)}
           </div>
           {b.client_notes && <div style={{ marginTop: 14, padding: 12, borderRadius: 8, background: C.bg }}><strong style={{ fontSize: 11, color: C.textMuted }}>CLIENT NOTES:</strong><p style={{ margin: '4px 0 0', fontSize: 13 }}>{b.client_notes}</p></div>}
           {b.cancellation_reason && <div style={{ marginTop: 10, padding: 12, borderRadius: 8, background: '#fce4ec' }}><strong style={{ fontSize: 11, color: '#c62828' }}>CANCELLATION REASON:</strong><p style={{ margin: '4px 0 0', fontSize: 13, color: '#c62828' }}>{b.cancellation_reason}</p></div>}
@@ -1856,7 +1860,7 @@ export default function App() {
               <Btn onClick={() => { updateBooking(b.id, { status: 'no_show' }); setModal(null); showToast('Marked as no-show') }} style={{ background: '#fce4ec', color: '#880e4f', border: '1px solid #880e4f' }}>No-show</Btn>
               <Btn variant="danger" onClick={() => { setModal({ type: 'cancelBooking', booking: b }) }}>Cancel</Btn>
             </>}
-            {!b.deposit_paid && !['cancelled','no_show'].includes(b.status) && <Btn onClick={() => { updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: 100 }); setModal(null); showToast('Deposit marked as paid') }} style={{ background: C.bg, color: C.gold, border: `1px solid ${C.gold}` }}>Mark Deposit Paid</Btn>}
+            {!b.deposit_paid && !['cancelled','no_show'].includes(b.status) && <Btn onClick={() => { updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: b.deposit_amount || branch?.default_deposit || 100 }); setModal(null); showToast('Deposit marked as paid') }} style={{ background: C.bg, color: C.gold, border: `1px solid ${C.gold}` }}>Mark Deposit Paid</Btn>}
             {b.status === 'completed' && branch?.sms_enabled && <Btn onClick={() => { sendReviewRequest(b.id); setModal(null) }} style={{ background: C.bg, color: C.accent, border: `1px solid ${C.accent}` }}><Phone size={14} color={C.accent}/> Request Review SMS</Btn>}
           </div>
         </Modal>
