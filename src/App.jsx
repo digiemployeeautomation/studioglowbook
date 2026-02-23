@@ -59,6 +59,23 @@ const fmt = (n) => `K ${Number(n || 0).toLocaleString()}`
 const fmtDate = (d) => new Date(d+'T12:00:00').toLocaleDateString('en-ZM', { weekday: 'short', day: 'numeric', month: 'short' })
 const fmtTime = (t) => { const [h, m] = (t || '00:00').split(':'); const hr = parseInt(h); return `${hr > 12 ? hr - 12 : hr || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}` }
 const todayStr = () => new Date().toISOString().split('T')[0]
+const friendlyError = (msg) => {
+  if (!msg) return 'Something went wrong. Please try again.';
+  const m = msg.toLowerCase();
+  if (m.includes('invalid login credentials') || m.includes('invalid_credentials')) return 'Incorrect email or password.';
+  if (m.includes('email not confirmed')) return 'Check your email to confirm your account.';
+  if (m.includes('user already registered') || m.includes('already been registered')) return 'An account with this email already exists.';
+  if (m.includes('password') && m.includes('too short')) return 'Password must be at least 6 characters.';
+  if (m.includes('rate limit') || m.includes('too many requests')) return 'Too many attempts. Wait a moment and try again.';
+  if (m.includes('network') || m.includes('fetch')) return 'Connection error. Check your internet.';
+  if (m.includes('duplicate') || m.includes('unique constraint') || m.includes('already exists')) return 'This record already exists.';
+  if (m.includes('foreign key') || m.includes('violates')) return 'Couldn\'t save — a linked record is missing.';
+  if (m.includes('database error') || m.includes('schema')) return 'Service temporarily unavailable. Try again.';
+  if (m.includes('jwt') || m.includes('token') || m.includes('unauthorized')) return 'Session expired. Please sign in again.';
+  if (msg.length > 80) return 'Something went wrong. Please try again.';
+  return msg;
+};
+const isValidZambianPhone = (phone) => { if (!phone) return false; const clean = phone.replace(/[\s\-()]/g, ''); return /^(?:\+?260|0)[79]\d{8}$/.test(clean); };
 const stars = (n) => <span style={{display:'inline-flex',gap:1}}>{[1,2,3,4,5].map(i=><Star key={i} size={14} fill={i<=Math.round(n)?'#c9a84c':'none'} stroke={i<=Math.round(n)?'#c9a84c':'#ccc'} strokeWidth={1.5}/>)}</span>
 
 function Badge({ status }) {
@@ -111,6 +128,9 @@ function Empty({ icon, msg }) {
 
 // ─── IMAGE UPLOAD UTILITY ─────────────────────────────────────────
 async function uploadImage(bucket, folder, file) {
+  if (file.size > 5 * 1024 * 1024) throw new Error('Image must be under 5MB')
+  const allowed = ['image/jpeg','image/png','image/webp','image/gif']
+  if (!allowed.includes(file.type)) throw new Error('Only JPG, PNG, WebP and GIF images are allowed')
   const ext = file.name.split('.').pop()
   const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
   const { data, error } = await supabase.storage.from(bucket).upload(path, file, { cacheControl: '3600', upsert: false })
@@ -127,7 +147,7 @@ function ImageUpload({ currentUrl, onUpload, bucket, folder, size = 80, round = 
   const handleFile = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 10 * 1024 * 1024) { alert('File too large (max 10MB)'); return }
+    if (file.size > 5 * 1024 * 1024) { alert('File too large (max 5MB)'); return }
     // Show preview immediately
     const reader = new FileReader()
     reader.onload = (ev) => setPreview(ev.target.result)
@@ -141,7 +161,7 @@ function ImageUpload({ currentUrl, onUpload, bucket, folder, size = 80, round = 
     } catch (err) {
       console.error('Upload error:', err)
       setPreview(currentUrl || null)
-      alert('Upload failed. Make sure storage bucket "' + bucket + '" exists in Supabase.\n\n' + (err.message || err))
+      showToast('Upload failed. Please try again.', 'error')
     }
     setUploading(false)
   }
@@ -449,7 +469,7 @@ function ServiceModal({ service, branchId, onSave, onClose, existingAddons }) {
     try {
       const url = await uploadImage('service-images', branchId, file)
       setImages(prev => [...prev, url])
-    } catch (err) { alert('Upload failed: ' + err.message) }
+    } catch (err) { showToast('Upload failed: ' + friendlyError(err.message), 'error') }
     setUploading(false)
   }
 
@@ -694,7 +714,7 @@ function StudioLogin({ onAuth }) {
     setSubmitting(true); setError('')
     const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
     setSubmitting(false)
-    if (err) return setError(err.message === 'Email not confirmed' ? 'Check your email to confirm your account.' : err.message)
+    if (err) return setError(friendlyError(err.message))
     onAuth(data.user)
   }
 
@@ -704,7 +724,7 @@ function StudioLogin({ onAuth }) {
     setSubmitting(true); setError('')
     const { data, error: err } = await supabase.auth.signUp({ email, password, options: { data: { name, role: 'studio_owner' } } })
     setSubmitting(false)
-    if (err) return setError(err.message)
+    if (err) return setError(friendlyError(err.message))
     setMode('confirm')
   }
 
@@ -713,7 +733,7 @@ function StudioLogin({ onAuth }) {
     setSubmitting(true); setError('')
     const { error: err } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
     setSubmitting(false)
-    if (err) return setError(err.message)
+    if (err) return setError(friendlyError(err.message))
     setMode('reset_sent')
   }
 
@@ -727,7 +747,7 @@ function StudioLogin({ onAuth }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: isWide ? 'flex-start' : 'center', marginBottom: 16 }}>
           <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="store" size={24} color="#fff" /></div>
         </div>
-        <h1 style={{ fontFamily: 'Fraunces, serif', fontSize: isWide ? 40 : 32, fontWeight: 700, color: '#fff', marginBottom: 8 }}>GlowBook Studio</h1>
+        <h1 style={{ fontFamily: 'Fraunces, serif', fontSize: isWide ? 40 : 32, fontWeight: 700, color: '#fff', marginBottom: 8 }}>LuminBook Studio</h1>
         <p style={{ color: 'rgba(255,255,255,.85)', fontSize: isWide ? 18 : 15, maxWidth: 360, lineHeight: 1.5 }}>Manage your salon bookings, staff & clients from one dashboard</p>
       </div>
       <div className="fade-up" style={{ padding: isWide ? '48px 56px' : '24px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: isWide ? 480 : '100%' }}>
@@ -788,14 +808,15 @@ function StudioOnboarding({ authUser, onComplete, onLogout }) {
       close_time: form.close_time,
       slot_interval: form.slot_interval,
       owner_email: authUser.email,
-      is_active: true,
+      is_active: false,
+      approval_status: 'pending',
       cancellation_hours: 2,
       cancellation_fee_percent: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }).select().single()
     setSubmitting(false)
-    if (err) return setError(err.message)
+    if (err) return setError(friendlyError(err.message))
     onComplete(data)
   }
 
@@ -808,7 +829,7 @@ function StudioOnboarding({ authUser, onComplete, onLogout }) {
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ width: 56, height: 56, borderRadius: 16, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><Icon name="sparkle" size={28} color="#fff" /></div>
           <h1 style={{ fontFamily: 'Fraunces', fontSize: 26, fontWeight: 700, marginBottom: 6 }}>Set Up Your Salon</h1>
-          <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6 }}>Welcome! Let's create your salon profile to get started with GlowBook Studio.</p>
+          <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6 }}>Welcome! Let's create your salon profile to get started with LuminBook Studio.</p>
         </div>
 
         {error && <div style={{ background: '#fce8e8', color: C.danger, padding: '12px 16px', borderRadius: 10, fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{error}</div>}
@@ -874,6 +895,16 @@ export default function App() {
   const [modal, setModal] = useState(null)
   const [toast, setToast] = useState(null)
 
+  // Offline detection
+  const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false)
+  useEffect(() => {
+    const goOff = () => setIsOffline(true)
+    const goOn = () => setIsOffline(false)
+    window.addEventListener('offline', goOff)
+    window.addEventListener('online', goOn)
+    return () => { window.removeEventListener('offline', goOff); window.removeEventListener('online', goOn) }
+  }, [])
+
   const showToast = useCallback((msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }, [])
 
   // ── AUTH CHECK ──
@@ -892,7 +923,7 @@ export default function App() {
   useEffect(() => {
     if (!authChecked) return
     if (authUser) {
-      supabase.from('branches').select('id, name, owner_email').then(({ data }) => {
+      supabase.from('branches').select('id, name, owner_email, is_active, approval_status').then(({ data }) => {
         const owned = (data || []).filter(b => b.owner_email === authUser.email)
         setOwnedBranches(owned)
         if (owned.length > 0) {
@@ -918,23 +949,44 @@ export default function App() {
     if (!branchId) return
     setLoading(true)
     try {
-      const [branchRes, bookingRes, staffRes, serviceRes, clientRes, reviewRes, branchesRes, blockedRes, waitlistRes, addonsRes] = await Promise.all([
+      // Calculate date 6 months ago for booking limit
+      const sixMonthsAgo = new Date()
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+      const sixMonthsAgoStr = sixMonthsAgo.toISOString().slice(0, 10)
+
+      const [branchRes, bookingRes, staffRes, serviceRes, reviewRes, branchesRes, blockedRes, waitlistRes, addonsRes] = await Promise.all([
         supabase.from('branches').select('*').eq('id', branchId).single(),
-        supabase.from('bookings').select('*').eq('branch_id', branchId).order('booking_date', { ascending: false }),
+        supabase.from('bookings').select('*').eq('branch_id', branchId).gte('booking_date', sixMonthsAgoStr).order('booking_date', { ascending: false }).limit(500),
         supabase.from('staff').select('*').eq('branch_id', branchId).order('name'),
         supabase.from('services').select('*').eq('branch_id', branchId).order('category, name'),
-        supabase.from('clients').select('*').order('name'),
         supabase.from('reviews').select('*').eq('branch_id', branchId).order('created_at', { ascending: false }),
         supabase.from('branches').select('id, name'),
         supabase.from('staff_blocked_times').select('*').eq('branch_id', branchId).gte('block_date', todayStr()).order('block_date'),
         supabase.from('waitlist').select('*').eq('branch_id', branchId).eq('status', 'waiting').order('preferred_date'),
-        supabase.from('service_addons').select('*'),
+        supabase.from('service_addons').select('*').eq('branch_id', branchId),
       ])
-      setBranch(branchRes.data); setBookings(bookingRes.data || []); setStaff(staffRes.data || [])
-      setServices(serviceRes.data || []); setClients(clientRes.data || []); setReviews(reviewRes.data || [])
+      const bkData = bookingRes.data || []
+      setBranch(branchRes.data); setBookings(bkData); setStaff(staffRes.data || [])
+      setServices(serviceRes.data || []); setReviews(reviewRes.data || [])
       setBranches(branchesRes.data || [])
       setBlockedTimes(blockedRes.data || []); setWaitlist(waitlistRes.data || [])
       setServiceAddons(addonsRes.data || [])
+
+      // Fix #1: Only fetch clients who have booked at THIS branch (not all platform clients)
+      const clientIds = [...new Set(bkData.map(b => b.client_id).filter(Boolean))]
+      if (clientIds.length > 0) {
+        // Supabase .in() has a limit, so batch if needed
+        const batchSize = 200
+        let allClients = []
+        for (let i = 0; i < clientIds.length; i += batchSize) {
+          const batch = clientIds.slice(i, i + batchSize)
+          const { data } = await supabase.from('clients').select('*').in('id', batch)
+          if (data) allClients = allClients.concat(data)
+        }
+        setClients(allClients)
+      } else {
+        setClients([])
+      }
     } catch (e) { console.error(e) }
     setLoading(false)
   }, [branchId])
@@ -970,7 +1022,7 @@ export default function App() {
   // CRUD
   const updateBooking = async (id, data) => {
     const { error } = await supabase.from('bookings').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id)
-    if (error) { showToast(error.message, 'error'); return }
+    if (error) { showToast(friendlyError(error.message), 'error'); return }
     showToast('Booking updated'); fetchAll(); setModal(null)
   }
   const cancelBooking = async (id, reason) => {
@@ -978,16 +1030,16 @@ export default function App() {
   }
   const updateBranch = async (data) => {
     const { error } = await supabase.from('branches').update({ ...data, updated_at: new Date().toISOString() }).eq('id', branchId)
-    if (error) { showToast(error.message, 'error'); return }
+    if (error) { showToast(friendlyError(error.message), 'error'); return }
     showToast('Profile updated'); fetchAll(); setModal(null)
   }
   const saveStaff = async (id, data) => {
     if (id) {
       const { error } = await supabase.from('staff').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id)
-      if (error) { showToast(error.message, 'error'); return }
+      if (error) { showToast(friendlyError(error.message), 'error'); return }
     } else {
       const { error } = await supabase.from('staff').insert({ ...data, branch_id: branchId })
-      if (error) { showToast(error.message, 'error'); return }
+      if (error) { showToast(friendlyError(error.message), 'error'); return }
     }
     showToast(id ? 'Staff updated' : 'Staff added'); fetchAll(); setModal(null)
   }
@@ -996,10 +1048,10 @@ export default function App() {
     let serviceId = data.id
     if (action === 'update') {
       const { error } = await supabase.from('services').update({ ...serviceData, updated_at: new Date().toISOString() }).eq('id', data.id)
-      if (error) { showToast(error.message, 'error'); return }
+      if (error) { showToast(friendlyError(error.message), 'error'); return }
     } else {
       const { data: newSvc, error } = await supabase.from('services').insert(serviceData).select('id').single()
-      if (error) { showToast(error.message, 'error'); return }
+      if (error) { showToast(friendlyError(error.message), 'error'); return }
       serviceId = newSvc.id
     }
     // Sync addons: delete existing, re-insert
@@ -1014,23 +1066,23 @@ export default function App() {
   }
   const toggleServiceActive = async (id, active) => {
     const { error } = await supabase.from('services').update({ is_active: !active, updated_at: new Date().toISOString() }).eq('id', id)
-    if (error) { showToast(error.message, 'error'); return }
+    if (error) { showToast(friendlyError(error.message), 'error'); return }
     showToast('Service status updated'); fetchAll()
   }
   const toggleStaffActive = async (id, active) => {
     const { error } = await supabase.from('staff').update({ is_active: !active, updated_at: new Date().toISOString() }).eq('id', id)
-    if (error) { showToast(error.message, 'error'); return }
+    if (error) { showToast(friendlyError(error.message), 'error'); return }
     showToast('Staff status updated'); fetchAll()
   }
   const replyReview = async (id, text) => {
     const { error } = await supabase.from('reviews').update({ response_text: text, response_date: todayStr(), updated_at: new Date().toISOString() }).eq('id', id)
-    if (error) { showToast(error.message, 'error'); return }
+    if (error) { showToast(friendlyError(error.message), 'error'); return }
     showToast('Reply posted'); fetchAll(); setModal(null)
   }
   // Blocked times
   const addBlockedTime = async (staffId, date, startTime, endTime, reason) => {
     const { error } = await supabase.from('staff_blocked_times').insert({ staff_id: staffId, branch_id: branchId, block_date: date, start_time: startTime || null, end_time: endTime || null, reason: reason || 'day_off' })
-    if (error) { showToast(error.message, 'error'); return }
+    if (error) { showToast(friendlyError(error.message), 'error'); return }
     showToast('Time off added'); fetchAll(); setModal(null)
   }
   const removeBlockedTime = async (id) => {
@@ -1040,7 +1092,7 @@ export default function App() {
   // Service image
   const updateServiceImages = async (id, images) => {
     const { error } = await supabase.from('services').update({ images, updated_at: new Date().toISOString() }).eq('id', id)
-    if (error) showToast(error.message, 'error')
+    if (error) showToast(friendlyError(error.message), 'error')
     else { showToast('Images updated'); fetchAll() }
   }
   // Waitlist
@@ -1061,6 +1113,8 @@ export default function App() {
   const sendReviewRequest = (bookingId) => sendSMSAction('send_review_request', { booking_id: bookingId })
 
   // ═════ DASHBOARD ═════
+  const isPendingApproval = branch && (branch.approval_status === 'pending' || (!branch.is_active && branch.approval_status !== 'approved'))
+
   function DashboardView() {
     const todayNoShows = bookings.filter(b => b.booking_date === todayStr() && b.status === 'no_show').length
     const todayWalkins = bookings.filter(b => b.booking_date === todayStr() && b.is_walk_in).length
@@ -1073,6 +1127,15 @@ export default function App() {
     ]
     return (
       <div>
+        {isPendingApproval && (
+          <div style={{ background: '#fff8e1', border: '1px solid #ffe082', borderRadius: 14, padding: '16px 20px', marginBottom: 20, display: 'flex', gap: 12, alignItems: 'center' }}>
+            <Icon name="alert" size={22} color="#f9a825" />
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#e65100' }}>Salon Pending Approval</div>
+              <div style={{ fontSize: 13, color: '#795548', lineHeight: 1.5 }}>Your salon is being reviewed by the LuminBook team. You can set up your services, staff, and profile while you wait. Clients will be able to find and book you once approved.</div>
+            </div>
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
           {stats.map((s, i) => (
             <div key={i} style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: '20px 22px', position: 'relative', overflow: 'hidden' }}>
@@ -1250,7 +1313,7 @@ export default function App() {
 
     const saveStaffHours = async (s) => {
       const { error } = await supabase.from('staff').update({ working_days: editStaff.working_days, start_time: editStaff.start_time, end_time: editStaff.end_time, updated_at: new Date().toISOString() }).eq('id', s.id)
-      if (!error) { showToast('Schedule updated'); setEditStaff(null); fetchAll() } else showToast(error.message, 'error')
+      if (!error) { showToast('Schedule updated'); setEditStaff(null); fetchAll() } else showToast(friendlyError(error.message), 'error')
     }
 
     const addBlock = async () => {
@@ -1532,14 +1595,14 @@ export default function App() {
         <Card>
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 700 }}>
-            <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Client', 'Phone', 'Bookings', 'Spent', 'GlowPoints', 'Status'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
+            <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Client', 'Phone', 'Bookings', 'Spent', 'LuminPoints', 'Status'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
             <tbody>{filtered.map(c => (
               <tr key={c.id} style={{ borderBottom: `1px solid ${C.border}`, cursor: 'pointer' }} onClick={() => setModal({ type: 'viewClient', client: c })}>
                 <td style={{ padding: '12px 8px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={{ width: 34, height: 34, borderRadius: '50%', background: C.roseLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.rose, fontSize: 13 }}>{c.name[0]}</div><div><div style={{ fontWeight: 600, color: C.text }}>{c.name}</div><div style={{ fontSize: 11, color: C.textMuted }}>{c.email}</div></div></div></td>
                 <td style={{ padding: '12px 8px' }}>{c.phone}</td>
                 <td style={{ padding: '12px 8px', fontWeight: 600 }}>{c.total_bookings || 0}</td>
                 <td style={{ padding: '12px 8px', fontWeight: 600, color: C.accent }}>{fmt(c.total_spent || 0)}</td>
-                <td style={{ padding: '12px 8px' }}><span style={{ fontWeight: 700, color: C.gold }}>{c.glow_points || 0}</span> pts</td>
+                <td style={{ padding: '12px 8px' }}><span style={{ fontWeight: 700, color: C.gold }}>{c.lumin_points || 0}</span> pts</td>
                 <td style={{ padding: '12px 8px' }}><span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: c.is_active ? C.successBg : C.dangerBg, color: c.is_active ? C.success : C.danger }}>{c.is_active ? 'Active' : 'Inactive'}</span></td>
               </tr>
             ))}</tbody>
@@ -1734,7 +1797,7 @@ export default function App() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Sender Name</label>
-                <input value={branch.sms_sender_name || 'GlowBook'} onChange={e => updateBranch({ sms_sender_name: e.target.value })} placeholder="GlowBook" maxLength={11} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }} />
+                <input value={branch.sms_sender_name || 'LuminBook'} onChange={e => updateBranch({ sms_sender_name: e.target.value })} placeholder="LuminBook" maxLength={11} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }} />
                 <span style={{ fontSize: 10, color: C.textLight }}>Max 11 chars, alphanumeric</span>
               </div>
               <div>
@@ -1787,7 +1850,7 @@ export default function App() {
       <Card style={{ marginTop: 20, textAlign: 'center', padding: '32px 20px' }}>
         <div style={{ marginBottom: 8 }}><Icon name="check" size={28} color="#2e7d32" /></div>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Thank you!</div>
-        <div style={{ fontSize: 13, color: C.textMuted, marginTop: 4 }}>Your suggestion has been submitted to GlowBook</div>
+        <div style={{ fontSize: 13, color: C.textMuted, marginTop: 4 }}>Your suggestion has been submitted to LuminBook</div>
       </Card>
     )
 
@@ -1795,7 +1858,7 @@ export default function App() {
       <Card title="Suggestion Box" style={{ marginTop: 20 }}>
         {!open ? (
           <div>
-            <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 14, lineHeight: 1.5 }}>Have ideas on how to improve GlowBook? We'd love to hear from you.</p>
+            <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 14, lineHeight: 1.5 }}>Have ideas on how to improve LuminBook? We'd love to hear from you.</p>
             <Btn variant="ghost" onClick={() => setOpen(true)}>Share a Suggestion →</Btn>
           </div>
         ) : (
@@ -1873,7 +1936,7 @@ export default function App() {
         <Modal title="Client Details" onClose={() => setModal(null)} wide>
           <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
             <div style={{ width: 60, height: 60, borderRadius: '50%', background: C.roseLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.rose, fontSize: 22 }}>{c.name[0]}</div>
-            <div><h3 style={{ margin: '0 0 4px', fontSize: 18, fontFamily: 'Fraunces', color: C.text }}>{c.name}</h3><div style={{ fontSize: 13, color: C.textMuted }}>{c.phone} • {c.email}</div><div style={{ display: 'flex', gap: 12, marginTop: 8 }}><span style={{ fontSize: 12, fontWeight: 600, color: C.gold }}>✦ {c.glow_points || 0} GlowPoints</span><span style={{ fontSize: 12, color: C.textMuted }}>Spent: {fmt(c.total_spent || 0)}</span></div></div>
+            <div><h3 style={{ margin: '0 0 4px', fontSize: 18, fontFamily: 'Fraunces', color: C.text }}>{c.name}</h3><div style={{ fontSize: 13, color: C.textMuted }}>{c.phone} • {c.email}</div><div style={{ display: 'flex', gap: 12, marginTop: 8 }}><span style={{ fontSize: 12, fontWeight: 600, color: C.gold }}>✦ {c.lumin_points || 0} LuminPoints</span><span style={{ fontSize: 12, color: C.textMuted }}>Spent: {fmt(c.total_spent || 0)}</span></div></div>
           </div>
           <h4 style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Booking History</h4>
           {cb.length === 0 ? <p style={{ fontSize: 13, color: C.textMuted }}>No bookings at your branch.</p> : cb.slice(0, 8).map(b => {
@@ -1894,7 +1957,7 @@ export default function App() {
     const [withdrawing, setWithdrawing] = useState(false)
     const [showWithdraw, setShowWithdraw] = useState(false)
 
-    const SUPABASE_URL = supabase.supabaseUrl || 'https://yvupvtnpnrelbxgmwguy.supabase.co'
+    const SUPABASE_URL = supabase.supabaseUrl
 
     const loadWallet = useCallback(async () => {
       if (!branch?.id) return
@@ -2018,7 +2081,7 @@ export default function App() {
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.text }}>Pending Payouts</h3>
             </div>
             <p style={{ margin: '0 0 16px', fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>
-              Your withdrawal is being processed by the GlowBook team. You'll receive the funds to your mobile money within 24 hours.
+              Your withdrawal is being processed by the LuminBook team. You'll receive the funds to your mobile money within 24 hours.
             </p>
             {wds.filter(w => w.status === 'pending' || w.status === 'processing').map(wd => (
               <div key={wd.id} style={{ padding: 16, background: C.bg, borderRadius: 12, marginBottom: 10, border: `1.5px solid ${C.border}` }}>
@@ -2153,6 +2216,9 @@ tr { transition: background .15s ease; } tr:hover { background: ${C.bg}; }
 .stagger-1{animation-delay:.05s}.stagger-2{animation-delay:.1s}.stagger-3{animation-delay:.15s}.stagger-4{animation-delay:.2s}.stagger-5{animation-delay:.25s}
 `}</style>
 
+      {/* Offline Banner */}
+      {isOffline && <div role="alert" style={{position:'fixed',top:0,left:0,right:0,zIndex:2100,background:'#c62828',color:'#fff',textAlign:'center',padding:'8px 16px',fontSize:13,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="alert" size={14} color="#fff"/>You're offline — check your connection</div>}
+
       {/* Mobile/Tablet Drawer Overlay */}
       {bp !== 'desktop' && sidebarOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1050 }}>
@@ -2161,7 +2227,7 @@ tr { transition: background .15s ease; } tr:hover { background: ${C.bg}; }
             <div style={{ padding: '20px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 10, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 700 }}>G</div>
-                <div><div style={{ fontSize: 16, fontWeight: 700, color: '#fff', fontFamily: 'Fraunces' }}>GlowBook</div><div style={{ fontSize: 10, color: C.textLight, textTransform: 'uppercase', letterSpacing: 1 }}>Studio</div></div>
+                <div><div style={{ fontSize: 16, fontWeight: 700, color: '#fff', fontFamily: 'Fraunces' }}>LuminBook</div><div style={{ fontSize: 10, color: C.textLight, textTransform: 'uppercase', letterSpacing: 1 }}>Studio</div></div>
               </div>
               <button onClick={() => setSidebarOpen(false)} className="touch-target" style={{ background: 'none', border: 'none', cursor: 'pointer' }}><Icon name="close" size={20} color="rgba(255,255,255,.5)" /></button>
             </div>
@@ -2187,7 +2253,7 @@ tr { transition: background .15s ease; } tr:hover { background: ${C.bg}; }
           <div style={{ padding: '0 20px', marginBottom: 28 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => { setPage('profile'); setSidebarOpen(false) }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16 }}>G</div>
-              <div><div style={{ fontSize: 17, fontWeight: 700, color: '#fff', fontFamily: 'Fraunces' }}>GlowBook</div><div style={{ fontSize: 10, color: C.textLight, textTransform: 'uppercase', letterSpacing: 1 }}>Studio</div></div>
+              <div><div style={{ fontSize: 17, fontWeight: 700, color: '#fff', fontFamily: 'Fraunces' }}>LuminBook</div><div style={{ fontSize: 10, color: C.textLight, textTransform: 'uppercase', letterSpacing: 1 }}>Studio</div></div>
             </div>
           </div>
           <div style={{ padding: '0 12px', marginBottom: 20 }}>
@@ -2204,7 +2270,7 @@ tr { transition: background .15s ease; } tr:hover { background: ${C.bg}; }
           <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
             {authUser && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{authUser.email}</div>}
             <button onClick={handleLogout} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left' }}>Sign Out</button>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 8 }}>GlowBook Studio v1.0</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 8 }}>LuminBook Studio v1.0</div>
           </div>
         </div>
       )}
