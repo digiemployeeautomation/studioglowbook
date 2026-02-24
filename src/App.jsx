@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
 import { Home, Search, Calendar, User, Star, Clock, MapPin, Phone, ArrowLeft, X, Check, Heart, Sparkles, Gift, ChevronRight, Scissors, Menu, Bell, LogOut, DollarSign, Share2, Copy, Lightbulb, CheckCircle2, XCircle, ClipboardList, AlarmClock, MessageCircle, ChevronDown, UserCircle, Mail, Smartphone, Send, Inbox, TrendingUp, Wallet, Shield } from 'lucide-react';
 
 const ACCENT = '#c47d5a';
