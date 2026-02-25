@@ -1,178 +1,134 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase } from './supabase';
-import { Home, Search, Calendar, User, Star, Clock, MapPin, Phone, ArrowLeft, X, Check, Heart, Sparkles, Gift, ChevronRight, Scissors, Menu, Bell, LogOut, DollarSign, Share2, Copy, Lightbulb, CheckCircle2, XCircle, ClipboardList, AlarmClock, MessageCircle, ChevronDown, UserCircle, Mail, Smartphone, Send, Inbox, TrendingUp, Wallet, Shield } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from './supabase'
+import { LayoutDashboard, Calendar, Clock, Users, Scissors, User, Star, DollarSign, Home, Menu, X, Search, Check, Plus, Pencil, Trash2, Eye, UserPlus, XCircle, Bell, ArrowLeft, ChevronRight, ChevronDown, LogOut, Upload, Phone, MapPin, Mail, Sparkles, Gift, TrendingUp, RefreshCw, Camera, Filter, Wallet, AlertCircle } from 'lucide-react'
 
-const ACCENT = '#c47d5a';
-const GOLD = '#c9a84c';
-const ROSE = '#d4728c';
-const BG = '#faf7f5';
-const DARK = '#1a1215';
-const CARD = '#ffffff';
-const MUTED = '#8a7e7a';
-const BORDER = '#ede8e4';
-const SIDEBAR_W = 260;
+function useBreakpoint() {
+  const [bp, setBp] = useState('desktop')
+  useEffect(() => {
+    const check = () => { const w = window.innerWidth; setBp(w >= 1024 ? 'desktop' : w >= 640 ? 'tablet' : 'mobile') }
+    check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check)
+  }, [])
+  return bp
+}
 
-const STATUS_MAP = {
-  confirmed: { bg: '#e8f5e9', fg: '#2e7d32', label: 'Confirmed' },
-  pending: { bg: '#fff3e0', fg: '#e65100', label: 'Pending' },
-  completed: { bg: '#e3f2fd', fg: '#1565c0', label: 'Completed' },
-  cancelled: { bg: '#fce4ec', fg: '#c62828', label: 'Cancelled' },
-  arrived: { bg: '#e0f7fa', fg: '#00695c', label: 'Arrived' },
-  in_progress: { bg: '#f3e5f5', fg: '#7b1fa2', label: 'In Progress' },
-  no_show: { bg: '#fce4ec', fg: '#880e4f', label: 'No Show' },
-};
+const C = {
+  bg: '#faf7f5', sidebar: '#1a1215', sidebarHover: '#2a1f23',
+  accent: '#c47d5a', accentLight: '#f0d9cc', accentDark: '#a35e3c',
+  gold: '#c9a84c', goldLight: '#f5ecd0',
+  rose: '#d4728c', roseLight: '#fce8ee',
+  text: '#2c1810', textMuted: '#8a7068', textLight: '#b8a89e',
+  white: '#ffffff', card: '#ffffff', border: '#ede5df',
+  success: '#4a9d6e', successBg: '#e8f5ec',
+  warning: '#c9a84c', warningBg: '#fdf6e3',
+  danger: '#c94c4c', dangerBg: '#fce8e8',
+  pending: '#6b8ec4', pendingBg: '#e8eef5',
+}
 
-const CATEGORIES_ICONS = { Braids:'braids', Hair:'hair', Nails:'nails', Skincare:'skincare', Spa:'spa', Makeup:'makeup', Lashes:'lashes', Barber:'barber', Wigs:'wigs', Massage:'spa', Body:'spa', Waxing:'skincare', Other:'sparkle' };
-const CatIcon = ({cat,size=18}) => { const n=CATEGORIES_ICONS[cat]; return n ? <Icon name={n} size={size} color={ACCENT}/> : <Icon name="sparkle" size={size} color={ACCENT}/> };
-const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const fmtDate = d => { if(!d) return '—'; const dt = new Date(d + 'T00:00:00'); return `${DAYS[dt.getDay()]}, ${dt.getDate()} ${MONTHS[dt.getMonth()]}`; };
-const fmtTime = t => { if(!t) return '—'; const [h,m] = t.split(':'); const hr = +h; return `${hr > 12 ? hr-12 : hr || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}`; };
-const todayStr = () => new Date().toISOString().slice(0, 10);
-const fmtK = v => { const n = parseFloat(v) || 0; return 'K' + n.toLocaleString('en-ZM', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); };
-const isValidZambianPhone = (phone) => { if (!phone) return false; const clean = phone.replace(/[\s\-()]/g, ''); return /^(?:\+?260|0)[79]\d{8}$/.test(clean); };
+const NAV = [
+  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { id: 'bookings', label: 'Bookings', icon: 'calendar' },
+  { id: 'schedule', label: 'Schedule', icon: 'clock' },
+  { id: 'staff', label: 'Staff', icon: 'users' },
+  { id: 'services', label: 'Services', icon: 'scissors' },
+  { id: 'clients', label: 'Clients', icon: 'clients' },
+  { id: 'reviews', label: 'Reviews', icon: 'star' },
+  { id: 'financials', label: 'Financials', icon: 'dollar' },
+  { id: 'wallet', label: 'Wallet', icon: 'dollar' },
+  { id: 'profile', label: 'Branch Profile', icon: 'store' },
+]
 
+const LUCIDE_MAP = { dashboard:LayoutDashboard, calendar:Calendar, clock:Clock, users:Users, scissors:Scissors, clients:User, star:Star, dollar:DollarSign, store:Home, menu:Menu, close:X, search:Search, check:Check, plus:Plus, edit:Pencil, trash:Trash2, eye:Eye, walkin:UserPlus, noshow:XCircle, bell:Bell, back:ArrowLeft, chevR:ChevronRight, chevD:ChevronDown, logout:LogOut, upload:Upload, phone:Phone, map:MapPin, mail:Mail, sparkle:Sparkles, gift:Gift, trendUp:TrendingUp, refresh:RefreshCw, camera:Camera, filter:Filter, wallet:Wallet, alert:AlertCircle }
+const Icon = ({ name, size = 20, color = 'currentColor' }) => {
+  const L = LUCIDE_MAP[name]
+  if (L) return <L size={size} color={color} strokeWidth={2} />
+  return <Sparkles size={size} color={color} />
+}
+
+const SC = {
+  confirmed: { bg: '#e8f5ec', text: '#4a9d6e', label: 'Confirmed' },
+  pending: { bg: '#fdf6e3', text: '#c9a84c', label: 'Pending' },
+  arrived: { bg: '#e0f7fa', text: '#00695c', label: 'Arrived' },
+  in_progress: { bg: '#f3e5f5', text: '#7b1fa2', label: 'In Progress' },
+  completed: { bg: '#e8eef5', text: '#6b8ec4', label: 'Completed' },
+  cancelled: { bg: '#fce8e8', text: '#c94c4c', label: 'Cancelled' },
+  no_show: { bg: '#fce4ec', text: '#880e4f', label: 'No Show' },
+  noshow: { bg: '#fce4ec', text: '#880e4f', label: 'No Show' },
+}
+
+const fmt = (n) => `K ${Number(n || 0).toLocaleString()}`
+const fmtDate = (d) => new Date(d+'T12:00:00').toLocaleDateString('en-ZM', { weekday: 'short', day: 'numeric', month: 'short' })
+const fmtTime = (t) => { const [h, m] = (t || '00:00').split(':'); const hr = parseInt(h); return `${hr > 12 ? hr - 12 : hr || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}` }
+const todayStr = () => new Date().toISOString().split('T')[0]
 const friendlyError = (msg) => {
   if (!msg) return 'Something went wrong. Please try again.';
   const m = msg.toLowerCase();
-  if (m.includes('invalid login credentials') || m.includes('invalid_credentials')) return 'Incorrect email or password. Please try again.';
-  if (m.includes('email not confirmed')) return 'Your email isn\'t verified yet. Check your inbox for a confirmation link.';
-  if (m.includes('user not found')) return 'No account found with that email. Would you like to sign up?';
-  if (m.includes('user already registered') || m.includes('already been registered')) return 'An account with this email already exists. Try signing in instead.';
+  if (m.includes('invalid login credentials') || m.includes('invalid_credentials')) return 'Incorrect email or password.';
+  if (m.includes('email not confirmed')) return 'Check your email to confirm your account.';
+  if (m.includes('user already registered') || m.includes('already been registered')) return 'An account with this email already exists.';
   if (m.includes('password') && m.includes('too short')) return 'Password must be at least 6 characters.';
-  if (m.includes('rate limit') || m.includes('too many requests')) return 'Too many attempts. Please wait a moment and try again.';
-  if (m.includes('network') || m.includes('fetch')) return 'Connection error. Check your internet and try again.';
-  if (m.includes('timeout')) return 'Request timed out. Please try again.';
-  if (m.includes('duplicate') || m.includes('already exists') || m.includes('unique constraint')) return 'This record already exists.';
+  if (m.includes('rate limit') || m.includes('too many requests')) return 'Too many attempts. Wait a moment and try again.';
+  if (m.includes('network') || m.includes('fetch')) return 'Connection error. Check your internet.';
+  if (m.includes('duplicate') || m.includes('unique constraint') || m.includes('already exists')) return 'This record already exists.';
   if (m.includes('foreign key') || m.includes('violates')) return 'Couldn\'t save — a linked record is missing.';
-  if (m.includes('database error') || m.includes('schema')) return 'Service temporarily unavailable. Please try again in a moment.';
-  if (m.includes('jwt') || m.includes('token') || m.includes('unauthorized')) return 'Your session expired. Please sign in again.';
+  if (m.includes('database error') || m.includes('schema')) return 'Service temporarily unavailable. Try again.';
+  if (m.includes('jwt') || m.includes('token') || m.includes('unauthorized')) return 'Session expired. Please sign in again.';
   if (msg.length > 80) return 'Something went wrong. Please try again.';
   return msg;
 };
+const isValidZambianPhone = (phone) => { if (!phone) return false; const clean = phone.replace(/[\s\-()]/g, ''); return /^(?:\+?260|0)[79]\d{8}$/.test(clean); };
+const stars = (n) => <span style={{display:'inline-flex',gap:1}}>{[1,2,3,4,5].map(i=><Star key={i} size={14} fill={i<=Math.round(n)?'#c9a84c':'none'} stroke={i<=Math.round(n)?'#c9a84c':'#ccc'} strokeWidth={1.5}/>)}</span>
 
-function useBreakpoint() {
-  const [bp, setBp] = useState('mobile');
-  useEffect(() => {
-    const check = () => { const w = window.innerWidth; setBp(w >= 1024 ? 'desktop' : w >= 640 ? 'tablet' : 'mobile'); };
-    check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check);
-  }, []);
-  return bp;
+function Badge({ status }) {
+  const s = SC[status] || SC.pending
+  return <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: s.bg, color: s.text, whiteSpace: 'nowrap' }}>{s.label}</span>
 }
 
-const css = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap');
-  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-  html{font-size:16px;-webkit-text-size-adjust:100%}
-  body{font-family:'DM Sans',system-ui,sans-serif;background:${BG};color:${DARK};-webkit-font-smoothing:antialiased;line-height:1.5;overflow-x:hidden}
-  input,textarea,select,button{font-family:inherit;font-size:inherit}
-  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-  @keyframes slideIn{from{transform:translateX(-100%)}to{transform:translateX(0)}}
-  @keyframes slideUp{from{opacity:0;transform:translateY(100%)}to{opacity:1;transform:translateY(0)}}
-  @keyframes pageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-  @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-  @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-  @keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
-  @keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-  @keyframes gentleBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-  @keyframes toastIn{0%{opacity:0;transform:translateY(16px) scale(.95)}100%{opacity:1;transform:translateY(0) scale(1)}}
-  @keyframes toastOut{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(8px) scale(.97)}}
-  @keyframes badgePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
-  @keyframes successPop{0%{transform:scale(0) rotate(-10deg);opacity:0}50%{transform:scale(1.15) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
-  @keyframes tabSlide{from{opacity:0;transform:translateX(6px)}to{opacity:1;transform:translateX(0)}}
-  @keyframes iconFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-  .fade-up{animation:fadeUp .35s cubic-bezier(.16,1,.3,1) both}
-  .slide-up{animation:slideUp .3s cubic-bezier(.16,1,.3,1) both}
-  .page-in{animation:pageIn .3s cubic-bezier(.16,1,.3,1) both}
-  .page-content{animation:fadeUp .35s cubic-bezier(.16,1,.3,1) both}
-  .scale-in{animation:scaleIn .25s cubic-bezier(.16,1,.3,1) both}
-  .tab-content{animation:tabSlide .25s cubic-bezier(.16,1,.3,1) both}
-  .success-pop{animation:successPop .4s cubic-bezier(.34,1.56,.64,1) both}
-  .toast-anim{animation:toastIn .3s cubic-bezier(.16,1,.3,1) both}
-  .badge-pulse{animation:badgePulse 2s ease-in-out infinite}
-  .icon-float{animation:iconFloat 3s ease-in-out infinite}
-  .skeleton{background:linear-gradient(90deg,${BORDER} 25%,#f5f0ed 50%,${BORDER} 75%);background-size:200% 100%;animation:shimmer 1.5s ease-in-out infinite;border-radius:8px}
-  .card-interactive{transition:transform .2s cubic-bezier(.16,1,.3,1),box-shadow .2s ease;cursor:pointer}
-  .card-interactive:hover{transform:translateY(-3px);box-shadow:0 8px 28px rgba(26,18,21,.06)}
-  .card-interactive:active{transform:translateY(-1px);box-shadow:0 4px 12px rgba(26,18,21,.04)}
-  .btn-interactive{transition:all .15s cubic-bezier(.16,1,.3,1)}
-  .btn-interactive:hover{filter:brightness(1.05);transform:translateY(-1px)}
-  .btn-interactive:active{transform:scale(.97) translateY(0);filter:brightness(.97)}
-  .chip-interactive{transition:all .15s ease}
-  .chip-interactive:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.06)}
-  .icon-btn{transition:all .15s ease;display:flex;align-items:center;justify-content:center}
-  .icon-btn:hover{background:rgba(196,125,90,.08);transform:scale(1.05)}
-  .icon-btn:active{transform:scale(.95)}
-  .nav-active-indicator{position:absolute;bottom:0;height:2.5px;background:${ACCENT};border-radius:2px;transition:left .25s cubic-bezier(.16,1,.3,1),width .25s cubic-bezier(.16,1,.3,1)}
-  .star-btn{transition:transform .12s cubic-bezier(.34,1.56,.64,1);cursor:pointer;display:inline-flex}
-  .star-btn:hover{transform:scale(1.2)}
-  .star-btn:active{transform:scale(.9)}
-  .ripple-container{position:relative;overflow:hidden}
-  .stagger-1{animation-delay:.05s}.stagger-2{animation-delay:.1s}.stagger-3{animation-delay:.15s}.stagger-4{animation-delay:.2s}.stagger-5{animation-delay:.25s}.stagger-6{animation-delay:.3s}
-  ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${BORDER};border-radius:3px}
-  input:focus,textarea:focus,select:focus{outline:none;border-color:${ACCENT}!important;box-shadow:0 0 0 3px ${ACCENT}22;transition:border-color .15s,box-shadow .15s}
-  .gb-grid-services{display:grid;gap:12px;grid-template-columns:1fr}
-  @media(min-width:640px){.gb-grid-services{grid-template-columns:repeat(2,1fr)}}
-  @media(min-width:1024px){.gb-grid-services{grid-template-columns:repeat(3,1fr)}}
-  .gb-grid-pop{display:grid;gap:12px;grid-template-columns:repeat(2,1fr)}
-  @media(min-width:640px){.gb-grid-pop{grid-template-columns:repeat(3,1fr)}}
-  @media(min-width:1024px){.gb-grid-pop{grid-template-columns:repeat(4,1fr)}}
-  .gb-grid-stats{display:grid;gap:12px;grid-template-columns:repeat(3,1fr)}
-  @media(max-width:400px){.gb-grid-stats{grid-template-columns:1fr}}
-  .gb-salon-list{display:grid;gap:14px;grid-template-columns:1fr}
-  @media(min-width:640px){.gb-salon-list{grid-template-columns:repeat(2,1fr)}}
-  @media(min-width:1024px){.gb-salon-list{grid-template-columns:repeat(3,1fr)}}
-  .gb-time-grid{display:grid;gap:8px;grid-template-columns:repeat(3,1fr)}
-  @media(min-width:640px){.gb-time-grid{grid-template-columns:repeat(4,1fr)}}
-  @media(min-width:1024px){.gb-time-grid{grid-template-columns:repeat(5,1fr)}}
-  .gb-booking-layout{display:block}
-  @media(min-width:1024px){.gb-booking-layout{display:grid;grid-template-columns:1fr 360px;gap:24px;align-items:start}}
-  .gb-profile-layout{display:block}
-  @media(min-width:768px){.gb-profile-layout{display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start}}
-  .touch-target{min-height:44px;min-width:44px;display:flex;align-items:center;justify-content:center}
-`;
-
-async function uploadImage(bucket, folder, file) {
-  if (file.size > 5 * 1024 * 1024) throw new Error('Image must be under 5MB');
-  const allowed = ['image/jpeg','image/png','image/webp','image/gif'];
-  if (!allowed.includes(file.type)) throw new Error('Only JPG, PNG, WebP and GIF images are allowed');
-  const ext = file.name.split('.').pop();
-  const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-  const { data, error } = await supabase.storage.from(bucket).upload(path, file, { cacheControl:'3600', upsert:false });
-  if (error) throw error;
-  const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
-  return publicUrl;
+function Btn({ children, variant = 'primary', small, onClick, disabled, style = {} }) {
+  const v = { primary: { background: C.accent, color: '#fff', border: 'none' }, secondary: { background: 'transparent', color: C.accent, border: `1.5px solid ${C.accent}` }, danger: { background: C.danger, color: '#fff', border: 'none' }, ghost: { background: 'transparent', color: C.textMuted, border: `1px solid ${C.border}` }, success: { background: C.success, color: '#fff', border: 'none' } }
+  return <button onClick={onClick} disabled={disabled} className="btn-hover" style={{ ...v[variant], padding: small ? '5px 12px' : '8px 18px', borderRadius: 8, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', opacity: disabled ? 0.5 : 1, transition: 'all 0.15s cubic-bezier(.16,1,.3,1)', whiteSpace: 'nowrap', ...style }}>{children}</button>
 }
 
-const LUCIDE = { home:Home, search:Search, calendar:Calendar, user:User, star:Star, clock:Clock, map:MapPin, phone:Phone, back:ArrowLeft, close:X, check:Check, heart:Heart, sparkle:Sparkles, gift:Gift, chevR:ChevronRight, scissors:Scissors, menu:Menu, bell:Bell, logout:LogOut, dollar:DollarSign, share:Share2, copy:Copy, lightbulb:Lightbulb, checkCircle:CheckCircle2, xCircle:XCircle, clipboard:ClipboardList, alarm:AlarmClock, message:MessageCircle, chevD:ChevronDown, userCircle:UserCircle, mail:Mail, smartphone:Smartphone, send:Send, inbox:Inbox, trending:TrendingUp, wallet:Wallet, shield:Shield };
-const Icon = ({ name, size = 20, color = DARK, fill: fillProp, ...p }) => {
-  const L = LUCIDE[name];
-  if (L) {
-    const isFilled = name === 'star' || name === 'points';
-    return <L size={size} color={color} fill={fillProp !== undefined ? fillProp : (isFilled ? color : 'none')} strokeWidth={isFilled ? 0 : 2} {...p} />;
-  }
-  const custom = {
-    braids:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2c0 4-3 6-3 10s3 6 3 10"/><path d="M12 2c0 4 3 6 3 10s-3 6-3 10"/><path d="M8 6h8M8 12h8M8 18h8"/></svg>,
-    hair:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7c0-2.8-3.6-5-8-5S4 4.2 4 7c0 1.5.8 2.8 2 3.8V21h2v-4h8v4h2V10.8c1.2-1 2-2.3 2-3.8z"/><path d="M8 13v-2M12 13v-3M16 13v-2"/></svg>,
-    nails:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21V11a4 4 0 018 0v10"/><path d="M8 14h8"/><path d="M10 7v4M12 6v5M14 7v4"/></svg>,
-    skincare:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22c4-2 7-6 7-11V5l-7-3-7 3v6c0 5 3 9 7 11z"/><circle cx="12" cy="11" r="2"/><path d="M12 9v-2"/></svg>,
-    spa:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22c-4.97 0-9-2.24-9-5v-1c0-2.76 4.03-5 9-5s9 2.24 9 5v1c0 2.76-4.03 5-9 5z"/><path d="M12 11C9 11 7 8 7 5a5 5 0 0110 0c0 3-2 6-5 6z"/></svg>,
-    makeup:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 2l-1 7.5c0 2 1.5 3.5 3.5 3.5s3.5-1.5 3.5-3.5L14.5 2"/><path d="M12 13v9"/><path d="M8 22h8"/><circle cx="12" cy="5" r="1"/></svg>,
-    lashes:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12c0-3 4.5-7 10-7s10 4 10 7"/><path d="M6 12c.5-3 3-5 6-5s5.5 2 6 5"/><path d="M5 9l-2-3M8 8l-1-4M12 7V2M16 8l1-4M19 9l2-3"/></svg>,
-    barber:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M6 7h12M6 12h12M6 17h12"/><circle cx="9" cy="9.5" r=".5" fill={color}/><circle cx="15" cy="14.5" r=".5" fill={color}/></svg>,
-    wigs:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C8 2 4 5 4 10c0 2 .5 3.5 1.5 4.5-.5 1.5-1.5 3-1.5 5.5h16c0-2.5-1-4-1.5-5.5C19.5 13.5 20 12 20 10c0-5-4-8-8-8z"/><path d="M8 10c1-2 3-3 4-3s3 1 4 3"/></svg>,
-    points:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="none"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7L12 16.4 5.7 21l2.3-7L2 9.4h7.6z" fill={color}/></svg>,
-  };
-  return custom[name] || <Sparkles size={size} color={color}/>;
-};
+function Card({ children, title, action, style = {} }) {
+  return (
+    <div className="card-hover" style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 24, ...style }}>
+      {(title || action) && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>{title && <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: C.text, fontFamily: 'Fraunces' }}>{title}</h3>}{action}</div>}
+      {children}
+    </div>
+  )
+}
 
-const Skeleton = ({w,h,r=8,style:s}) => <div className="skeleton" style={{width:w,height:h,borderRadius:r,...s}}/>;
+function Input({ label, value, onChange, type = 'text', placeholder, textarea, options, style = {} }) {
+  const s = { width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', color: C.text, background: C.bg, outline: 'none', boxSizing: 'border-box', ...style }
+  return (
+    <div style={{ marginBottom: 14 }}>
+      {label && <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</label>}
+      {options ? <select value={value} onChange={e => onChange(e.target.value)} style={s}>{options.map(o => <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>)}</select> : textarea ? <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3} style={{ ...s, resize: 'vertical' }} /> : <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={s} />}
+    </div>
+  )
+}
+
+function Modal({ title, onClose, children, wide }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,18,21,0.5)', backdropFilter: 'blur(4px)' }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', background: C.white, borderRadius: 16, padding: 28, width: wide ? 600 : 440, maxWidth: '92vw', maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontFamily: 'Fraunces', color: C.text }}>{title}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Icon name="close" size={22} color={C.textMuted} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function Empty({ icon, msg }) {
+  return <div style={{ textAlign: 'center', padding: '40px 20px', color: C.textMuted }}><div style={{ marginBottom: 12, opacity: 0.4, display: 'flex', justifyContent: 'center' }}><Icon name={icon} size={40} color={C.textMuted} /></div><p style={{ margin: 0, fontSize: 14 }}>{msg}</p></div>
+}
 
 // ── LUMINBOOK LOGO COMPONENTS ──
-const LogoIcon = ({size=36,onClick,style:s}) => (
-  <div onClick={onClick} style={{width:size,height:size,borderRadius:size*.3,cursor:onClick?'pointer':'default',flexShrink:0,...s}}>
+const LogoIcon = ({size=36,style:s}) => (
+  <div style={{width:size,height:size,borderRadius:size*.3,flexShrink:0,...s}}>
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
       <rect width="64" height="64" rx="19" fill="url(#lbg)"/>
       <path d="M22 18v28h20" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
@@ -184,1704 +140,2284 @@ const LogoIcon = ({size=36,onClick,style:s}) => (
     </svg>
   </div>
 );
-const LogoFull = ({iconSize=36,fontSize=20,onClick,dark,gap=10,sub}) => (
+const LogoFull = ({iconSize=36,fontSize=17,onClick,dark=true,gap=10,sub}) => (
   <div onClick={onClick} style={{display:'flex',alignItems:'center',gap,cursor:onClick?'pointer':'default'}} aria-label="LuminBook home">
     <LogoIcon size={iconSize}/>
-    <div><span style={{fontFamily:'Fraunces,serif',fontSize,fontWeight:700,color:dark?'#fff':DARK}}>Lumin<span style={{color:ACCENT}}>Book</span></span>
-    {sub&&<div style={{fontSize:10,color:dark?'rgba(255,255,255,.5)':MUTED,textTransform:'uppercase',letterSpacing:1,marginTop:1}}>{sub}</div>}</div>
+    <div><div style={{fontSize,fontWeight:700,color:dark?'#fff':C.text,fontFamily:'Fraunces'}}>{dark?'LuminBook':<>Lumin<span style={{color:C.accent}}>Book</span></>}</div>
+    {sub&&<div style={{fontSize:10,color:dark?C.textLight:C.textMuted,textTransform:'uppercase',letterSpacing:1}}>{sub}</div>}</div>
   </div>
 );
 
-const LoadingSkeleton = () => (
-  <div style={{padding:20}}>
-    <Skeleton w="50%" h={28} style={{marginBottom:24}}/>
-    <div style={{display:'grid',gap:14}}>
-      {[0,1,2,3].map(i=>(
-        <div key={i} className={`stagger-${i+1}`} style={{display:'flex',gap:14,padding:16,background:CARD,borderRadius:18,border:`1px solid ${BORDER}`,animation:'fadeUp .4s ease both'}}>
-          <Skeleton w={52} h={52} r={14}/>
-          <div style={{flex:1}}><Skeleton w="65%" h={16} style={{marginBottom:10}}/><Skeleton w="40%" h={12} style={{marginBottom:8}}/><Skeleton w="30%" h={12}/></div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
-const Badge = ({children,bg,fg}) => <span style={{display:'inline-block',padding:'3px 10px',borderRadius:20,fontSize:12,fontWeight:600,background:bg,color:fg,whiteSpace:'nowrap'}}>{children}</span>;
-
-const Stars = ({rating,size=14}) => <span style={{display:'inline-flex',gap:1}}>{[1,2,3,4,5].map(i=><svg key={i} width={size} height={size} viewBox="0 0 24 24" fill={i<=rating?GOLD:'none'} stroke={i<=rating?GOLD:'#ccc'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>)}</span>;
-
-const Btn = ({children,variant='primary',full,small,disabled,onClick,style:s,...rest}) => {
-  const base = {display:'inline-flex',alignItems:'center',justifyContent:'center',gap:8,border:'none',cursor:disabled?'not-allowed':'pointer',borderRadius:12,fontWeight:600,transition:'all .15s cubic-bezier(.16,1,.3,1)',opacity:disabled?.5:1,width:full?'100%':'auto',padding:small?'8px 16px':'13px 24px',fontSize:small?13:15,minHeight:44};
-  const vars = {primary:{background:ACCENT,color:'#fff'},secondary:{background:'#f0ebe7',color:DARK},outline:{background:'transparent',color:ACCENT,border:`1.5px solid ${ACCENT}`},ghost:{background:'transparent',color:MUTED},gold:{background:GOLD,color:'#fff'},rose:{background:ROSE,color:'#fff'}};
-  return <button onClick={onClick} disabled={disabled} className="btn-interactive" style={{...base,...vars[variant],...s}} {...rest}>{children}</button>;
-};
-
-const BottomSheet = ({open,onClose,title,children}) => {
-  if(!open) return null;
-  return <div style={{position:'fixed',inset:0,zIndex:1100,display:'flex',flexDirection:'column',justifyContent:'flex-end',animation:'fadeIn .15s ease both'}} role="dialog" aria-modal="true" aria-label={title}>
-    <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,.45)',backdropFilter:'blur(3px)'}}/>
-    <div className="slide-up" style={{position:'relative',background:CARD,borderRadius:'24px 24px 0 0',maxHeight:'85vh',display:'flex',flexDirection:'column',boxShadow:'0 -8px 40px rgba(0,0,0,.1)'}}>
-      <div style={{padding:'16px 20px 0',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{width:40,height:4,borderRadius:2,background:BORDER,position:'absolute',top:8,left:'50%',transform:'translateX(-50%)'}}/>
-        <h3 style={{fontSize:18,fontFamily:'Fraunces,serif',fontWeight:600,marginTop:8}}>{title}</h3>
-        <button onClick={onClose} className="touch-target icon-btn" style={{background:'none',border:'none',cursor:'pointer',borderRadius:12}}><Icon name="close" size={20} color={MUTED}/></button>
-      </div>
-      <div style={{padding:20,overflowY:'auto',flex:1}}>{children}</div>
-    </div>
-  </div>;
-};
-
-const Toast = ({message,type='success'}) => <div className="toast-anim" style={{position:'fixed',bottom:24,left:'50%',transform:'translateX(-50%)',zIndex:2000,background:type==='success'?'#2e7d32':'#c62828',color:'#fff',padding:'12px 24px',borderRadius:50,fontSize:14,fontWeight:600,boxShadow:'0 8px 32px rgba(0,0,0,.2)',display:'flex',alignItems:'center',gap:8,whiteSpace:'nowrap',maxWidth:'90vw'}}><Icon name={type==='success'?'checkCircle':'xCircle'} size={16} color="#fff"/>{message}</div>;
-
-const EmptyState = ({icon,title,sub}) => <div className="fade-up" style={{textAlign:'center',padding:'48px 20px'}}><div className="icon-float" style={{width:56,height:56,borderRadius:16,background:`linear-gradient(135deg,${ACCENT}12,${GOLD}12)`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}><Icon name={icon||'sparkle'} size={24} color={ACCENT}/></div><div style={{fontSize:16,fontWeight:600,marginBottom:4}}>{title}</div><div style={{fontSize:14,color:MUTED}}>{sub}</div></div>;
-
-const Toggle = ({value,onChange}) => <div onClick={onChange} style={{width:44,height:26,borderRadius:13,background:value?ACCENT:BORDER,cursor:'pointer',position:'relative',transition:'all .2s',flexShrink:0}}><div style={{width:22,height:22,borderRadius:11,background:'#fff',position:'absolute',top:2,left:value?20:2,transition:'all .2s',boxShadow:'0 1px 3px rgba(0,0,0,.15)'}}/></div>;
-
-const NAV_ITEMS = [{id:'home',icon:'home',label:'Home'},{id:'explore',icon:'search',label:'Explore'},{id:'bookings',icon:'calendar',label:'Bookings'},{id:'profile',icon:'user',label:'Profile'}];
-
-function AppShell({page,setPage,children,client,unreadCount,onNotifClick,onLogout,bp}) {
-  const [drawerOpen,setDrawerOpen] = useState(false);
-  const navTo = id => {setPage(id);setDrawerOpen(false)};
-
-  const Sidebar = () => (
-    <aside style={{position:'fixed',top:0,left:0,bottom:0,width:SIDEBAR_W,background:CARD,borderRight:`1px solid ${BORDER}`,display:'flex',flexDirection:'column',zIndex:100,overflowY:'auto'}}>
-      <div style={{padding:'24px 20px 16px'}}>
-        <LogoFull iconSize={36} fontSize={20} onClick={()=>navTo('home')}/>
-      </div>
-      <nav role="navigation" aria-label="Main navigation" style={{flex:1,padding:'8px 12px'}}>
-        {NAV_ITEMS.map(n=><button key={n.id} onClick={()=>navTo(n.id)} style={{display:'flex',alignItems:'center',gap:12,width:'100%',padding:'12px 14px',borderRadius:12,border:'none',cursor:'pointer',marginBottom:4,transition:'all .15s',background:page===n.id?`${ACCENT}12`:'transparent',color:page===n.id?ACCENT:MUTED,fontSize:14,fontWeight:page===n.id?600:500,textAlign:'left'}}>
-          <Icon name={n.icon} size={20} color={page===n.id?ACCENT:MUTED}/>{n.label}
-          {n.id==='bookings'&&unreadCount>0&&<span style={{marginLeft:'auto',background:ROSE,color:'#fff',fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:10}}>{unreadCount}</span>}
-        </button>)}
-      </nav>
-      <div style={{padding:16,borderTop:`1px solid ${BORDER}`}}>
-        <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 4px'}}>
-          <div style={{width:36,height:36,borderRadius:18,background:`linear-gradient(135deg,${ACCENT},${ROSE})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:14,flexShrink:0}}>{client?.name?.[0]||'G'}</div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:13,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{client?.name||'Guest'}</div>
-            <div style={{fontSize:11,color:MUTED}}>{client?.email||''}</div>
-          </div>
-          <button onClick={onLogout} className="touch-target" style={{background:'none',border:'none',cursor:'pointer'}}><Icon name="logout" size={18} color={MUTED}/></button>
-        </div>
-      </div>
-    </aside>
-  );
-
-  const Drawer = () => (
-    <div style={{position:'fixed',inset:0,zIndex:1050,display:drawerOpen?'flex':'none'}}>
-      <div onClick={()=>setDrawerOpen(false)} style={{position:'absolute',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(2px)'}}/>
-      <div style={{position:'relative',width:280,maxWidth:'80vw',background:CARD,height:'100%',display:'flex',flexDirection:'column',animation:drawerOpen?'slideIn .25s ease':'none',boxShadow:'4px 0 24px rgba(0,0,0,.1)'}}>
-        <div style={{padding:'20px 20px 12px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <LogoFull iconSize={32} fontSize={18} onClick={()=>{setDrawerOpen(false);navTo('home')}}/>
-          <button onClick={()=>setDrawerOpen(false)} className="touch-target" style={{background:'none',border:'none',cursor:'pointer'}}><Icon name="close" size={22} color={MUTED}/></button>
-        </div>
-        <div style={{padding:'12px 20px 16px',borderBottom:`1px solid ${BORDER}`}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <div style={{width:44,height:44,borderRadius:22,background:`linear-gradient(135deg,${ACCENT},${ROSE})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:18}}>{client?.name?.[0]||'G'}</div>
-            <div><div style={{fontSize:15,fontWeight:600}}>{client?.name||'Guest'}</div><div style={{fontSize:12,color:MUTED}}>{client?.lumin_points||0} LuminPoints</div></div>
-          </div>
-        </div>
-        <nav style={{flex:1,padding:'12px 12px',overflowY:'auto'}}>
-          {NAV_ITEMS.map(n=><button key={n.id} onClick={()=>navTo(n.id)} style={{display:'flex',alignItems:'center',gap:14,width:'100%',padding:'14px 16px',borderRadius:12,border:'none',cursor:'pointer',marginBottom:4,minHeight:48,background:page===n.id?`${ACCENT}12`:'transparent',color:page===n.id?ACCENT:DARK,fontSize:15,fontWeight:page===n.id?600:500,textAlign:'left'}}>
-            <Icon name={n.icon} size={22} color={page===n.id?ACCENT:MUTED}/>{n.label}
-          </button>)}
-        </nav>
-        <div style={{padding:16,borderTop:`1px solid ${BORDER}`}}>
-          <Btn full variant="secondary" onClick={()=>{setDrawerOpen(false);onLogout()}} style={{borderRadius:12,color:'#c62828'}}>Sign Out</Btn>
-        </div>
-      </div>
-    </div>
-  );
-
-  const TopBar = () => (
-    <header style={{position:'sticky',top:0,zIndex:100,background:'rgba(255,255,255,.92)',backdropFilter:'blur(16px)',borderBottom:`1px solid ${BORDER}`,padding:'0 16px',display:'flex',alignItems:'center',justifyContent:'space-between',height:56}}>
-      <div style={{display:'flex',alignItems:'center',gap:10}}>
-        <button onClick={()=>setDrawerOpen(true)} className="touch-target" aria-label="Open menu" style={{background:'none',border:'none',cursor:'pointer'}}><Icon name="menu" size={24} color={DARK}/></button>
-        <LogoFull iconSize={28} fontSize={16} onClick={()=>navTo('home')} gap={8}/>
-      </div>
-      <div style={{display:'flex',alignItems:'center',gap:4}}>
-        <button onClick={onNotifClick} className="touch-target" aria-label="Notifications" style={{background:'none',border:'none',cursor:'pointer',position:'relative'}}>
-          <Icon name="bell" size={22} color={MUTED}/>
-          {unreadCount>0&&<span className="badge-pulse" style={{position:'absolute',top:6,right:6,width:8,height:8,borderRadius:4,background:'#EF4444'}}/>}
-        </button>
-      </div>
-    </header>
-  );
-
-  const isDesktop = bp === 'desktop';
-  return (
-    <div style={{minHeight:'100vh',background:BG}}>
-      {isDesktop?<Sidebar/>:<><TopBar/><Drawer/></>}
-      <main style={{marginLeft:isDesktop?SIDEBAR_W:0,minHeight:isDesktop?'100vh':'auto'}}>{children}</main>
-    </div>
-  );
+// ─── IMAGE UPLOAD UTILITY ─────────────────────────────────────────
+async function uploadImage(bucket, folder, file) {
+  if (file.size > 5 * 1024 * 1024) throw new Error('Image must be under 5MB')
+  const allowed = ['image/jpeg','image/png','image/webp','image/gif']
+  if (!allowed.includes(file.type)) throw new Error('Only JPG, PNG, WebP and GIF images are allowed')
+  const ext = file.name.split('.').pop()
+  const path = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+  const { data, error } = await supabase.storage.from(bucket).upload(path, file, { cacheControl: '3600', upsert: false })
+  if (error) throw error
+  const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path)
+  return publicUrl
 }
 
-function AuthScreen({onAuth}) {
-  const [mode,setMode]=useState('login');
-  const [email,setEmail]=useState('');
-  const [password,setPassword]=useState('');
-  const [name,setName]=useState('');
-  const [phone,setPhone]=useState('');
-  const [referralCode,setReferralCode]=useState('');
-  const [error,setError]=useState('');
-  const [submitting,setSubmitting]=useState(false);
-  const bp=useBreakpoint();
+function ImageUpload({ currentUrl, onUpload, bucket, folder, size = 80, round = false, label, onRemove, uploading: extUploading }) {
+  const [uploading, setUploading] = useState(false)
+  const [preview, setPreview] = useState(currentUrl || null)
+  const ref = useState(null)
 
-  const handleLogin=async()=>{
-    if(!email||!password)return setError('Please fill in all fields');
-    setSubmitting(true);setError('');
-    const{data,error:err}=await supabase.auth.signInWithPassword({email,password});
-    setSubmitting(false);
-    if(err)return setError(friendlyError(err.message));
-    onAuth(data.user);
-  };
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { alert('File too large (max 5MB)'); return }
+    // Show preview immediately
+    const reader = new FileReader()
+    reader.onload = (ev) => setPreview(ev.target.result)
+    reader.readAsDataURL(file)
+    // Upload
+    setUploading(true)
+    try {
+      const url = await uploadImage(bucket, folder, file)
+      setPreview(url)
+      onUpload(url)
+    } catch (err) {
+      console.error('Upload error:', err)
+      setPreview(currentUrl || null)
+      showToast('Upload failed. Please try again.', 'error')
+    }
+    setUploading(false)
+  }
 
-  const handleSignup=async()=>{
-    if(!email||!password||!name)return setError('Name, email & password required');
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return setError('Please enter a valid email address.');
-    if(password.length<6)return setError('Password must be at least 6 characters.');
-    if(phone&&!isValidZambianPhone(phone))return setError('Please enter a valid Zambian phone number (e.g. 0971234567) or leave it blank.');
-    setSubmitting(true);setError('');
-    const{data,error:err}=await supabase.auth.signUp({email,password,options:{data:{name,phone}}});
-    setSubmitting(false);
-    if(err)return setError(friendlyError(err.message));
-    if(data.user){
-      // Handle referral if provided (best-effort — runs before email confirmation)
-      if(referralCode.trim()){
-        try{
-          const{data:ref}=await supabase.from('clients').select('id').eq('referral_code',referralCode.trim().toUpperCase()).single();
-          if(ref){
-            // Update the client record the trigger just created (or will create) with referral
-            await supabase.from('clients').update({referred_by:ref.id}).eq('auth_user_id',data.user.id);
-            await supabase.from('referrals').insert({referrer_id:ref.id,referred_email:email,referred_name:name,referral_code:referralCode.trim().toUpperCase(),status:'signed_up'});
-          }
-        }catch(e){console.warn('Referral link failed:',e.message)}
+  const isLoading = uploading || extUploading
+  const sz = typeof size === 'number' ? size : parseInt(size)
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      {label && <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase' }}>{label}</label>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: sz, height: sz, borderRadius: round ? '50%' : 12, overflow: 'hidden', background: C.border, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative', border: `2px dashed ${preview ? 'transparent' : C.textLight}`, cursor: 'pointer' }}
+          onClick={() => document.getElementById(`img-up-${bucket}-${folder}`).click()}>
+          {preview ? (
+            <img src={preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <span style={{ fontSize: sz > 60 ? 24 : 16, color: C.textLight }}>+</span>
+          )}
+          {isLoading && (
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 20, height: 20, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            </div>
+          )}
+        </div>
+        <div>
+          <button onClick={() => document.getElementById(`img-up-${bucket}-${folder}`).click()}
+            style={{ padding: '6px 14px', borderRadius: 8, border: `1px solid ${C.border}`, background: 'transparent', color: C.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', marginBottom: 4, display: 'block' }}>
+            {preview ? 'Change Photo' : 'Upload Photo'}
+          </button>
+          {preview && onRemove && (
+            <button onClick={() => { setPreview(null); onRemove(); }}
+              style={{ padding: '4px 14px', borderRadius: 8, border: 'none', background: 'transparent', color: C.danger, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>
+              Remove
+            </button>
+          )}
+        </div>
+        <input id={`img-up-${bucket}-${folder}`} type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+      </div>
+    </div>
+  )
+}
+
+function GalleryUpload({ images = [], onUpdate, bucket, folder }) {
+  const [uploading, setUploading] = useState(false)
+  const [list, setList] = useState(images)
+
+  const handleFiles = async (e) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setUploading(true)
+    const newUrls = []
+    for (const file of files) {
+      try {
+        const url = await uploadImage(bucket, folder, file)
+        newUrls.push(url)
+      } catch (err) {
+        console.error('Gallery upload error:', err)
+        alert('Upload failed for ' + file.name + '. Make sure storage bucket "' + bucket + '" exists.')
       }
     }
-    setMode('confirm');
-  };
+    if (newUrls.length) {
+      const updated = [...list, ...newUrls]
+      setList(updated)
+      onUpdate(updated)
+    }
+    setUploading(false)
+  }
 
-  const handleForgot=async()=>{
-    if(!email)return setError('Enter your email');
-    setSubmitting(true);setError('');
-    const{error:err}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin});
-    setSubmitting(false);
-    if(err)return setError(friendlyError(err.message));
-    setMode('reset_sent');
-  };
-
-  const iStyle={width:'100%',padding:'14px 16px',borderRadius:12,border:`1.5px solid ${BORDER}`,fontSize:15,background:CARD,color:DARK,marginBottom:12,minHeight:48};
-  const isWide=bp!=='mobile';
-
-  return (
-    <div style={{minHeight:'100vh',background:BG,display:'flex',flexDirection:isWide?'row':'column'}}>
-      <style>{css}</style>
-      <div style={{background:`linear-gradient(135deg,${ACCENT},${ROSE})`,padding:isWide?'60px 48px':'52px 24px 36px',borderRadius:isWide?0:'0 0 32px 32px',textAlign:isWide?'left':'center',flex:isWide?'0 0 45%':'none',display:'flex',flexDirection:'column',justifyContent:'center',minHeight:isWide?'100vh':'auto'}}>
-        <LogoIcon size={52} style={{marginBottom:8}}/>
-        <h1 style={{fontFamily:'Fraunces,serif',fontSize:isWide?40:32,fontWeight:700,color:'#fff',marginBottom:8}}>Lumin<span style={{color:'rgba(255,255,255,.7)'}}>Book</span></h1>
-        <p style={{color:'rgba(255,255,255,.85)',fontSize:isWide?18:15,maxWidth:360}}>Book beauty services near you</p>
-      </div>
-      <div className="fade-up" style={{padding:isWide?'48px 56px':'24px',flex:1,display:'flex',flexDirection:'column',justifyContent:'center',maxWidth:isWide?480:'100%'}}>
-        {mode==='confirm'?(
-          <div style={{textAlign:'center',padding:'40px 0'}}>
-            <div className="success-pop" style={{marginBottom:16}}><div style={{width:72,height:72,borderRadius:20,background:`linear-gradient(135deg,${ACCENT}20,${ROSE}20)`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto'}}><Icon name="mail" size={32} color={ACCENT}/></div></div>
-            <h2 style={{fontFamily:'Fraunces,serif',fontSize:22,fontWeight:700,marginBottom:8}}>Check your email</h2>
-            <p style={{color:MUTED,fontSize:14,lineHeight:1.6,marginBottom:24}}>Confirmation link sent to <strong>{email}</strong>.</p>
-            <Btn full variant="primary" onClick={()=>{setMode('login');setError('')}}>Go to Login</Btn>
-          </div>
-        ):mode==='reset_sent'?(
-          <div style={{textAlign:'center',padding:'40px 0'}}>
-            <div style={{fontSize:56,marginBottom:16}}>🔑</div>
-            <h2 style={{fontFamily:'Fraunces,serif',fontSize:22,fontWeight:700,marginBottom:8}}>Reset link sent</h2>
-            <p style={{color:MUTED,fontSize:14,marginBottom:24}}>Check <strong>{email}</strong>.</p>
-            <Btn full variant="primary" onClick={()=>{setMode('login');setError('')}}>Back to Login</Btn>
-          </div>
-        ):mode==='forgot'?(
-          <>
-            <h2 style={{fontFamily:'Fraunces,serif',fontSize:24,fontWeight:700,marginBottom:4}}>Reset password</h2>
-            <p style={{color:MUTED,fontSize:14,marginBottom:24}}>Enter your email for a reset link</p>
-            {error&&<div style={{background:'#fce4ec',color:'#c62828',padding:'12px 16px',borderRadius:12,fontSize:13,fontWeight:500,marginBottom:16}}>{error}</div>}
-            <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" style={iStyle} onKeyDown={e=>e.key==='Enter'&&handleForgot()}/>
-            <Btn full variant="primary" disabled={submitting} onClick={handleForgot} style={{marginBottom:12}}>{submitting?'Sending...':'Send Reset Link'}</Btn>
-            <button onClick={()=>{setMode('login');setError('')}} style={{background:'none',border:'none',color:ACCENT,fontSize:14,fontWeight:600,cursor:'pointer',padding:8,textAlign:'center'}}>Back to login</button>
-          </>
-        ):(
-          <>
-            <h2 style={{fontFamily:'Fraunces,serif',fontSize:24,fontWeight:700,marginBottom:4}}>{mode==='login'?'Welcome back':'Create account'}</h2>
-            <p style={{color:MUTED,fontSize:14,marginBottom:24}}>{mode==='login'?'Sign in to manage bookings':'Join LuminBook'}</p>
-            {error&&<div style={{background:'#fce4ec',color:'#c62828',padding:'12px 16px',borderRadius:12,fontSize:13,fontWeight:500,marginBottom:16}}>{error}</div>}
-            {mode==='signup'&&<><input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" style={iStyle}/><input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="Phone (optional)" style={iStyle}/></>}
-            <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" style={iStyle}/>
-            <input value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" type="password" style={iStyle} onKeyDown={e=>e.key==='Enter'&&(mode==='login'?handleLogin():handleSignup())}/>
-            {mode==='signup'&&<input value={referralCode} onChange={e=>setReferralCode(e.target.value)} placeholder="Referral code (optional)" style={iStyle}/>}
-            <Btn full variant="primary" disabled={submitting} onClick={mode==='login'?handleLogin:handleSignup} style={{marginBottom:12}}>{submitting?'Please wait...':mode==='login'?'Sign In':'Create Account'}</Btn>
-            {mode==='login'&&<button onClick={()=>{setMode('forgot');setError('')}} style={{background:'none',border:'none',color:MUTED,fontSize:13,cursor:'pointer',padding:4,marginBottom:8,textAlign:'center'}}>Forgot password?</button>}
-            <button onClick={()=>{setMode(mode==='login'?'signup':'login');setError('')}} style={{background:'none',border:'none',color:ACCENT,fontSize:14,fontWeight:600,cursor:'pointer',padding:8,marginBottom:16,textAlign:'center'}}>{mode==='login'?"Don't have an account? Sign up":'Already have an account? Sign in'}</button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ResetPasswordForm({onDone}) {
-  const [pw,setPw]=useState('');
-  const [pw2,setPw2]=useState('');
-  const [error,setError]=useState('');
-  const [saving,setSaving]=useState(false);
-  const [done,setDone]=useState(false);
-  const iStyle={width:'100%',padding:'14px 16px',borderRadius:12,border:`1.5px solid ${BORDER}`,fontSize:15,background:CARD,color:DARK,marginBottom:12,minHeight:48};
-  const handleReset=async()=>{
-    if(!pw||!pw2)return setError('Please fill in both fields');
-    if(pw.length<6)return setError('Password must be at least 6 characters');
-    if(pw!==pw2)return setError('Passwords do not match');
-    setSaving(true);setError('');
-    const{error:err}=await supabase.auth.updateUser({password:pw});
-    setSaving(false);
-    if(err)return setError(friendlyError(err.message));
-    setDone(true);
-  };
-  if(done) return(
-    <div style={{background:CARD,borderRadius:20,padding:40,maxWidth:400,width:'100%',textAlign:'center'}}>
-      <div style={{fontSize:48,marginBottom:16}}>✓</div>
-      <h2 style={{fontFamily:'Fraunces,serif',fontSize:22,fontWeight:700,marginBottom:8}}>Password updated</h2>
-      <p style={{color:MUTED,fontSize:14,marginBottom:24}}>Your password has been changed successfully.</p>
-      <Btn full variant="primary" onClick={onDone}>Continue</Btn>
-    </div>
-  );
-  return(
-    <div style={{background:CARD,borderRadius:20,padding:40,maxWidth:400,width:'100%'}}>
-      <div style={{textAlign:'center',marginBottom:24}}>
-        <div style={{fontSize:48,marginBottom:12}}>🔑</div>
-        <h2 style={{fontFamily:'Fraunces,serif',fontSize:22,fontWeight:700,marginBottom:4}}>Set new password</h2>
-        <p style={{color:MUTED,fontSize:14}}>Enter your new password below</p>
-      </div>
-      {error&&<div style={{background:'#fce4ec',color:'#c62828',padding:'12px 16px',borderRadius:12,fontSize:13,fontWeight:500,marginBottom:16}}>{error}</div>}
-      <input value={pw} onChange={e=>setPw(e.target.value)} placeholder="New password" type="password" style={iStyle} autoFocus/>
-      <input value={pw2} onChange={e=>setPw2(e.target.value)} placeholder="Confirm password" type="password" style={iStyle} onKeyDown={e=>e.key==='Enter'&&handleReset()}/>
-      <Btn full variant="primary" disabled={saving} onClick={handleReset} style={{marginBottom:12}}>{saving?'Saving...':'Update Password'}</Btn>
-      <button onClick={onDone} style={{width:'100%',background:'none',border:'none',color:MUTED,fontSize:13,cursor:'pointer',padding:8,textAlign:'center'}}>Skip for now</button>
-    </div>
-  );
-}
-
-function HomePage({branches,services,reviews,staff,branchAvgRating,branchReviews,categories,selectedCategory,setSelectedCategory,searchQuery,setSearchQuery,navigate,favorites,toggleFav,reminders,getService,getBranch,bp,onServiceCompare,bookings}) {
-  const topBranches=[...branches].sort((a,b)=>{const ra=branchReviews(a.id),rb=branchReviews(b.id);return(rb.length?rb.reduce((s,r)=>s+r.rating_overall,0)/rb.length:0)-(ra.length?ra.reduce((s,r)=>s+r.rating_overall,0)/ra.length:0)});
-  const recentReviews=reviews.slice(0,4);
-  const pad=bp==='desktop'?'32px':'20px';
-  const [isSearching,setIsSearching]=useState(false);
-  const q=searchQuery.toLowerCase().trim();
-
-  // Smart search: match salons and services
-  const matchedBranches=q?branches.filter(b=>b.name?.toLowerCase().includes(q)||b.location?.toLowerCase().includes(q)):[];
-  const matchedServices=q?services.filter(s=>s.name?.toLowerCase().includes(q)||s.category?.toLowerCase().includes(q)):[];
-  const hasResults=matchedBranches.length>0||matchedServices.length>0;
-
-  // Sort categories by service count (most popular first)
-  const catCounts={};services.forEach(s=>{catCounts[s.category]=(catCounts[s.category]||0)+1});
-  const sortedCats=['All',...[...new Set(services.map(s=>s.category).filter(Boolean))].sort((a,b)=>(catCounts[b]||0)-(catCounts[a]||0))];
-
-  const doSearch=()=>{if(q)setIsSearching(true)};
+  const removeImage = (idx) => {
+    const updated = list.filter((_, i) => i !== idx)
+    setList(updated)
+    onUpdate(updated)
+  }
 
   return (
-    <div className="fade-up">
-      <div style={{background:`linear-gradient(135deg,${ACCENT},${ROSE})`,padding:bp==='desktop'?'40px 32px':'28px 20px',borderRadius:bp==='desktop'?0:'0 0 24px 24px'}}>
-        <div style={{maxWidth:720}}>
-          <p style={{color:'rgba(255,255,255,.8)',fontSize:14,marginBottom:4}}>Welcome to</p>
-          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
-            <LogoIcon size={bp==='desktop'?40:32}/>
-            <h1 style={{fontFamily:'Fraunces,serif',fontSize:bp==='desktop'?32:26,fontWeight:700,color:'#fff'}}>Lumin<span style={{color:'rgba(255,255,255,.7)'}}>Book</span></h1>
-          </div>
-          <div style={{background:'rgba(255,255,255,.95)',borderRadius:14,display:'flex',alignItems:'center',padding:'0 4px 0 14px',boxShadow:'0 4px 20px rgba(0,0,0,.08)'}}>
-            <Icon name="search" size={18} color={MUTED}/>
-            <input value={searchQuery} onChange={e=>{setSearchQuery(e.target.value);if(!e.target.value)setIsSearching(false)}} onKeyDown={e=>{if(e.key==='Enter')doSearch()}} placeholder="Search studios & services..." style={{flex:1,border:'none',background:'none',padding:'14px 10px',fontSize:15,color:DARK,minHeight:48}}/>
-            {searchQuery&&<button onClick={()=>{setSearchQuery('');setIsSearching(false)}} className="touch-target" style={{background:'none',border:'none',cursor:'pointer',padding:6}}><Icon name="close" size={16} color={MUTED}/></button>}
-            <button onClick={doSearch} style={{width:40,height:40,borderRadius:12,background:q?ACCENT:BORDER,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'background .2s',marginLeft:4,flexShrink:0}}><Icon name="search" size={18} color={q?'#fff':MUTED}/></button>
-          </div>
-        </div>
-      </div>
-      <div style={{padding:`16px ${pad} 32px`}}>
-        {/* Inline search results */}
-        {isSearching&&q?(
-          <div style={{marginBottom:24}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-              <h2 style={{fontFamily:'Fraunces,serif',fontSize:18,fontWeight:600}}>Results for "{searchQuery}"</h2>
-              <button onClick={()=>{setSearchQuery('');setIsSearching(false)}} style={{background:'none',border:'none',color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer'}}>Clear</button>
-            </div>
-            {!hasResults&&<EmptyState icon="search" title="No results found" sub="Try a different search term"/>}
-            {matchedBranches.length>0&&(
-              <div style={{marginBottom:20}}>
-                <div style={{fontSize:12,fontWeight:700,color:MUTED,textTransform:'uppercase',marginBottom:10,letterSpacing:.5}}>Studios</div>
-                <div style={{display:'grid',gap:10,gridTemplateColumns:bp==='desktop'?'repeat(2,1fr)':'1fr'}}>
-                  {matchedBranches.map(b=>{const avg=branchAvgRating(b.id);return(
-                    <div key={b.id} onClick={()=>navigate('salon',{branch:b})} className="card-interactive" style={{background:CARD,borderRadius:16,padding:14,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',gap:12,alignItems:'center'}}>
-                      <div style={{width:50,height:50,borderRadius:14,background:`linear-gradient(135deg,${ACCENT}40,${ROSE}40)`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:20}}>✂</div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:14,fontWeight:700}}>{b.name}</div>
-                        <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:MUTED,marginTop:2}}><Icon name="map" size={11} color={MUTED}/>{b.location||'Lusaka'}<span>•</span><Icon name="star" size={11} color={GOLD}/>{avg}</div>
-                      </div>
-                      <Icon name="chevR" size={16} color={MUTED}/>
-                    </div>
-                  )})}
-                </div>
-              </div>
-            )}
-            {matchedServices.length>0&&(
-              <div>
-                <div style={{fontSize:12,fontWeight:700,color:MUTED,textTransform:'uppercase',marginBottom:10,letterSpacing:.5}}>Services</div>
-                <div style={{display:'grid',gap:10,gridTemplateColumns:bp==='desktop'?'repeat(2,1fr)':'1fr'}}>
-                  {matchedServices.map(s=>{const br=branches.find(b=>b.id===s.branch_id);return(
-                    <div key={s.id} onClick={()=>onServiceCompare(s)} style={{background:CARD,borderRadius:16,padding:14,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}><CatIcon cat={s.category} size={14}/><span style={{fontSize:14,fontWeight:600}}>{s.name}</span></div>
-                        <div style={{fontSize:12,color:MUTED}}>{br?.name||'Studio'} • {s.duration}{s.duration_max&&s.duration_max!==s.duration?`–${s.duration_max}`:''} min</div>
-                      </div>
-                      <div style={{fontSize:16,fontWeight:700,color:ACCENT,flexShrink:0,marginLeft:12}}>{fmtK(s.price)}</div>
-                    </div>
-                  )})}
-                </div>
-              </div>
-            )}
-          </div>
-        ):(
-          <>
-            {reminders?.length>0&&<div style={{marginBottom:20}}>{reminders.map(r=>{const svc=getService?.(r.service_id);const br=getBranch?.(r.branch_id);return(
-              <div key={r.id} onClick={()=>navigate('bookings')} style={{background:`linear-gradient(135deg,${ACCENT}12,${ROSE}12)`,borderRadius:16,padding:14,marginBottom:8,border:`1px solid ${ACCENT}25`,cursor:'pointer',display:'flex',gap:12,alignItems:'center'}}>
-                <div style={{width:44,height:44,borderRadius:12,background:`linear-gradient(135deg,${ACCENT}30,${GOLD}30)`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name="clock" size={20} color={ACCENT}/></div>
-                <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:700,color:ACCENT}}>Upcoming in {r.hoursUntil}h</div><div style={{fontSize:14,fontWeight:600}}>{svc?.name||'Appointment'}</div><div style={{fontSize:12,color:MUTED}}>{br?.name} · {fmtTime(r.booking_time)}</div></div>
-                <Icon name="chevR" size={16} color={ACCENT}/>
-              </div>
-            )})}</div>}
-            <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:16,marginBottom:8}}>
-              {sortedCats.map(c=><button key={c} onClick={()=>{setSelectedCategory(c);navigate('explore')}} style={{flexShrink:0,padding:'10px 18px',borderRadius:50,border:`1.5px solid ${c===selectedCategory?ACCENT:BORDER}`,background:c===selectedCategory?`${ACCENT}12`:CARD,color:c===selectedCategory?ACCENT:DARK,fontSize:13,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:6,minHeight:44}}>{c!=='All'&&<CatIcon cat={c}/>}{c}{c!=='All'&&<span style={{fontSize:11,color:MUTED,fontWeight:400}}>({catCounts[c]||0})</span>}</button>)}
-            </div>
-            <div style={{marginBottom:28}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-                <h2 style={{fontFamily:'Fraunces,serif',fontSize:20,fontWeight:600}}>Popular Near You</h2>
-                <button onClick={()=>navigate('explore')} style={{background:'none',border:'none',color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',minHeight:44,display:'flex',alignItems:'center',gap:4}}>See all <Icon name="chevR" size={14} color={ACCENT}/></button>
-              </div>
-              <div className="gb-salon-list">
-                {topBranches.slice(0,bp==='desktop'?6:4).map(b=>{
-                  const colors=['#c47d5a','#d4728c','#c9a84c','#7d8cc4','#5aac7d'];
-                  const bgC=colors[b.name?.length%colors.length]||'#c47d5a';
-                  const avg=branchAvgRating(b.id);
-                  return(
-                    <div key={b.id} onClick={()=>navigate('salon',{branch:b})} className="card-interactive" style={{background:CARD,borderRadius:18,overflow:'hidden',border:`1px solid ${BORDER}`,cursor:'pointer'}}>
-                      <div style={{height:100,background:`linear-gradient(135deg,${bgC},${bgC}dd)`,position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                        <span style={{fontSize:36,opacity:.25}}>✂</span>
-                        <button onClick={e=>{e.stopPropagation();toggleFav(b.id)}} style={{position:'absolute',top:10,right:10,background:'rgba(255,255,255,.8)',border:'none',borderRadius:50,width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Icon name="heart" size={16} color={favorites.includes(b.id)?ROSE:'#999'}/></button>
-                      </div>
-                      <div style={{padding:14}}>
-                        <h3 style={{fontSize:15,fontWeight:700,marginBottom:4}}>{b.name}</h3>
-                        <div style={{display:'flex',alignItems:'center',gap:4,fontSize:12,color:MUTED,marginBottom:6}}><Icon name="map" size={12} color={MUTED}/>{b.location||'Lusaka'}</div>
-                        <div style={{display:'flex',alignItems:'center',gap:4}}><Stars rating={Math.round(+avg)} size={12}/><span style={{fontSize:12,fontWeight:600}}>{avg}</span><span style={{fontSize:11,color:MUTED}}>({branchReviews(b.id).length})</span></div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <div style={{marginBottom:28}}>
-              <h2 style={{fontFamily:'Fraunces,serif',fontSize:20,fontWeight:600,marginBottom:14}}>Popular Services</h2>
-              <div className="gb-grid-pop">
-                {services.slice(0,bp==='desktop'?8:6).map(s=>(
-                  <div key={s.id} onClick={()=>onServiceCompare(s)} style={{background:CARD,borderRadius:16,padding:16,border:`1px solid ${BORDER}`,cursor:'pointer',transition:'transform .2s',position:'relative',overflow:'hidden'}} onMouseEnter={e=>e.currentTarget.style.transform='translateY(-2px)'} onMouseLeave={e=>e.currentTarget.style.transform='none'}>
-                    {s.images?.[0]&&<img src={s.images[0]} alt="" style={{width:'100%',height:80,objectFit:'cover',borderRadius:10,marginBottom:8}}/>}
-                    <div style={{marginBottom:8}}>{!s.images?.[0]&&<CatIcon cat={s.category} size={24}/>}</div>
-                    <div style={{fontSize:14,fontWeight:600,marginBottom:4,lineHeight:1.3}}>{s.name}</div>
-                    <div style={{fontSize:13,color:MUTED}}>{s.duration}{s.duration_max&&s.duration_max!==s.duration?`–${s.duration_max}`:''} min</div>
-                    <div style={{fontSize:15,fontWeight:700,color:ACCENT,marginTop:6}}>{fmtK(s.price)}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {recentReviews.length>0&&(
-              <div style={{marginBottom:28}}>
-                <h2 style={{fontFamily:'Fraunces,serif',fontSize:20,fontWeight:600,marginBottom:14}}>Recent Reviews</h2>
-                <div style={{display:'grid',gap:12,gridTemplateColumns:bp==='desktop'?'repeat(2,1fr)':'1fr'}}>
-                  {recentReviews.map(r=>{const br=branches.find(b=>b.id===r.branch_id);return(
-                    <div key={r.id} style={{background:CARD,borderRadius:16,padding:16,border:`1px solid ${BORDER}`}}>
-                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}><span style={{fontWeight:600,fontSize:14}}>{br?.name||'Studio'}</span><Stars rating={r.rating_overall} size={12}/></div>
-                      <p style={{fontSize:13,color:MUTED,lineHeight:1.5}}>{r.review_text?.slice(0,120)}{r.review_text?.length>120?'...':''}</p>
-                    </div>
-                  )})}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ExplorePage({branches,services,reviews,branchAvgRating,branchReviews,navigate,searchQuery,setSearchQuery,selectedCategory,setSelectedCategory,categories,favorites,toggleFav,bp,onServiceCompare}) {
-  const q=searchQuery.toLowerCase();
-  const filteredBranches=branches.filter(b=>(!q||b.name?.toLowerCase().includes(q)||b.location?.toLowerCase().includes(q))&&(selectedCategory==='All'||services.some(s=>s.branch_id===b.id&&s.category===selectedCategory)));
-  const filteredServices=services.filter(s=>(!q||s.name?.toLowerCase().includes(q)||s.category?.toLowerCase().includes(q))&&(selectedCategory==='All'||s.category===selectedCategory));
-  const [viewMode,setViewMode]=useState('studios');
-  const pad=bp==='desktop'?'32px':'20px';
-
-  return (
-    <div className="fade-up">
-      <div style={{padding:`20px ${pad} 16px`,background:CARD,borderBottom:`1px solid ${BORDER}`}}>
-        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,maxWidth:640}}>
-          <div style={{flex:1,background:BG,borderRadius:14,display:'flex',alignItems:'center',padding:'0 4px 0 14px',border:`1px solid ${BORDER}`}}>
-            <Icon name="search" size={18} color={MUTED}/>
-            <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} autoFocus placeholder="Search studios & services..." style={{flex:1,border:'none',background:'none',padding:'12px 10px',fontSize:15,color:DARK,minHeight:44}}/>
-            {searchQuery&&<button onClick={()=>setSearchQuery('')} className="touch-target" style={{background:'none',border:'none',cursor:'pointer',padding:6}}><Icon name="close" size={16} color={MUTED}/></button>}
-            <button style={{width:38,height:38,borderRadius:10,background:q?ACCENT:BORDER,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name="search" size={16} color={q?'#fff':MUTED}/></button>
-          </div>
-        </div>
-        <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>
-          {categories.map(c=><button key={c} onClick={()=>setSelectedCategory(c)} style={{flexShrink:0,padding:'8px 16px',borderRadius:50,border:'none',background:c===selectedCategory?ACCENT:`${ACCENT}10`,color:c===selectedCategory?'#fff':DARK,fontSize:13,fontWeight:600,cursor:'pointer',minHeight:36}}>{c!=='All'&&<span style={{marginRight:4}}><CatIcon cat={c}/></span>}{c}</button>)}
-        </div>
-      </div>
-      <div style={{padding:`14px ${pad}`,display:'flex',gap:8,maxWidth:300}}>
-        {['studios','services'].map(v=><button key={v} onClick={()=>setViewMode(v)} style={{flex:1,padding:'10px',borderRadius:10,border:'none',fontWeight:600,fontSize:13,minHeight:40,background:viewMode===v?DARK:'#f0ebe7',color:viewMode===v?'#fff':DARK,cursor:'pointer',textTransform:'capitalize'}}>{v}</button>)}
-      </div>
-      <div style={{padding:`0 ${pad} 32px`}}>
-        {viewMode==='studios'?(filteredBranches.length?
-          <div className="gb-salon-list">
-            {filteredBranches.map(b=>(
-              <div key={b.id} onClick={()=>navigate('salon',{branch:b})} className="card-interactive" style={{background:CARD,borderRadius:18,padding:16,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',gap:14}}>
-                <div style={{width:64,height:64,borderRadius:14,background:`linear-gradient(135deg,${ACCENT}40,${ROSE}40)`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:24}}>✂</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'start'}}><h3 style={{fontSize:15,fontWeight:700}}>{b.name}</h3><button onClick={e=>{e.stopPropagation();toggleFav(b.id)}} className="touch-target" style={{background:'none',border:'none',cursor:'pointer'}}><Icon name="heart" size={18} color={favorites.includes(b.id)?ROSE:'#ddd'}/></button></div>
-                  <div style={{display:'flex',alignItems:'center',gap:4,fontSize:12,color:MUTED,margin:'3px 0'}}><Icon name="map" size={12} color={MUTED}/>{b.location||'Lusaka'}</div>
-                  <div style={{display:'flex',alignItems:'center',gap:6}}><Stars rating={Math.round(+branchAvgRating(b.id))} size={12}/><span style={{fontSize:12,fontWeight:600}}>{branchAvgRating(b.id)}</span><span style={{fontSize:11,color:MUTED}}>({branchReviews(b.id).length})</span></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        :<EmptyState icon="search" title="No results found" sub="Try a different search"/>)
-        :(filteredServices.length?
-          <div className="gb-grid-services">
-            {filteredServices.map(s=>{const br=branches.find(b=>b.id===s.branch_id);return(
-              <div key={s.id} onClick={()=>onServiceCompare(s)} style={{background:CARD,borderRadius:16,border:`1px solid ${BORDER}`,cursor:'pointer',overflow:'hidden'}}>
-                {s.images?.[0]&&<img src={s.images[0]} alt="" style={{width:'100%',height:80,objectFit:'cover'}}/>}
-                <div style={{padding:14,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                  <div style={{flex:1,minWidth:0}}><div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}><CatIcon cat={s.category} size={16}/><span style={{fontSize:15,fontWeight:600}}>{s.name}</span></div><div style={{fontSize:12,color:MUTED}}>{br?.name} • {s.duration}{s.duration_max&&s.duration_max!==s.duration?`–${s.duration_max}`:''} min</div></div>
-                  <div style={{textAlign:'right',flexShrink:0,marginLeft:12}}><div style={{fontSize:16,fontWeight:700,color:ACCENT}}>{fmtK(s.price)}</div></div>
-                </div>
-              </div>
-            )})}
-          </div>
-        :<EmptyState icon="scissors" title="No services found" sub="Try a different category"/>)}
-      </div>
-    </div>
-  );
-}
-
-function SalonPage({branch,services,reviews,staff,branchAvgRating,navigate,goBack,favorites,toggleFav,client,bp,allServices,allBranches,onServiceCompare,onReview,clientBookings,reviewedIds}) {
-  const [tab,setTab]=useState('services');
-  const [reviewsShown,setReviewsShown]=useState(8);
-  if(!branch) return null;
-  const avg=branchAvgRating(branch.id);
-  const grouped={};
-  services.forEach(s=>{if(!grouped[s.category])grouped[s.category]=[];grouped[s.category].push(s)});
-  const pad=bp==='desktop'?'32px':'20px';
-  const completedHere=clientBookings?.filter(b=>b.branch_id===branch.id&&b.status==='completed'&&!reviewedIds?.has(b.id))||[];
-
-  return (
-    <div className="fade-up">
-      <div style={{height:bp==='desktop'?200:180,background:`linear-gradient(135deg,${ACCENT},${ROSE})`,position:'relative',display:'flex',alignItems:'flex-end',borderRadius:bp==='desktop'?0:'0 0 24px 24px'}}>
-        {bp!=='desktop'&&<div style={{position:'absolute',top:12,left:12,right:12,display:'flex',justifyContent:'space-between'}}>
-          <button onClick={goBack} className="touch-target" style={{width:40,height:40,borderRadius:20,background:'rgba(255,255,255,.2)',backdropFilter:'blur(8px)',border:'none',cursor:'pointer'}}><Icon name="back" size={20} color="#fff"/></button>
-          <div style={{display:'flex',gap:8}}>
-            {branch.booking_slug&&<button onClick={()=>{const url=`${window.location.origin}/${branch.booking_slug}`;if(navigator.share)navigator.share({title:branch.name,text:`Book at ${branch.name}`,url});else{navigator.clipboard.writeText(url)}}} className="touch-target" style={{width:40,height:40,borderRadius:20,background:'rgba(255,255,255,.2)',backdropFilter:'blur(8px)',border:'none',cursor:'pointer'}}><Icon name="share" size={20} color="#fff"/></button>}
-            <button onClick={()=>toggleFav(branch.id)} className="touch-target" style={{width:40,height:40,borderRadius:20,background:'rgba(255,255,255,.2)',backdropFilter:'blur(8px)',border:'none',cursor:'pointer'}}><Icon name="heart" size={20} color={favorites.includes(branch.id)?'#fff':'rgba(255,255,255,.6)'}/></button>
-          </div>
-        </div>}
-        <div style={{padding:`0 ${pad} 20px`,width:'100%'}}>
-          <h1 style={{fontFamily:'Fraunces,serif',fontSize:bp==='desktop'?28:24,fontWeight:700,color:'#fff',marginBottom:4}}>{branch.name}</h1>
-          <div style={{display:'flex',alignItems:'center',gap:12,color:'rgba(255,255,255,.85)',fontSize:13,flexWrap:'wrap'}}>
-            <span style={{display:'flex',alignItems:'center',gap:4}}><Icon name="map" size={14} color="rgba(255,255,255,.85)"/>{branch.location||'Lusaka'}</span>
-            <span style={{display:'flex',alignItems:'center',gap:4}}><Icon name="star" size={14} color={GOLD}/>{avg} ({reviews.length})</span>
-          </div>
-        </div>
-      </div>
-      <div style={{padding:`16px ${pad}`}}>
-        <div className="gb-grid-stats">{[[services.length,'Services',ACCENT],[staff.length,'Stylists',GOLD],[avg,'Rating',ROSE]].map(([v,l,c])=><div key={l} style={{background:CARD,borderRadius:14,padding:12,border:`1px solid ${BORDER}`,textAlign:'center'}}><div style={{fontSize:20,fontWeight:700,color:c}}>{v}</div><div style={{fontSize:11,color:MUTED}}>{l}</div></div>)}</div>
-      </div>
-      <div style={{padding:`0 ${pad}`,display:'flex',gap:4,marginBottom:16,borderBottom:`1px solid ${BORDER}`,maxWidth:400}}>
-        {['services','team','reviews'].map(t=><button key={t} onClick={()=>setTab(t)} style={{flex:1,padding:'12px 0',background:'none',border:'none',borderBottom:tab===t?`2px solid ${ACCENT}`:'2px solid transparent',color:tab===t?ACCENT:MUTED,fontSize:14,fontWeight:600,cursor:'pointer',textTransform:'capitalize',minHeight:44}}>{t}</button>)}
-      </div>
-      <div style={{padding:`0 ${pad} 100px`}}>
-        {tab==='services'&&Object.entries(grouped).map(([cat,svcs])=>(
-          <div key={cat} style={{marginBottom:20}}>
-            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}><CatIcon cat={cat} size={16}/><h3 style={{fontSize:16,fontWeight:700}}>{cat}</h3></div>
-            <div className="gb-grid-services">{svcs.map(s=>(
-              <div key={s.id} style={{background:CARD,borderRadius:16,border:`1px solid ${BORDER}`,overflow:'hidden'}}>
-                {s.images?.[0]&&<img src={s.images[0]} alt="" style={{width:'100%',height:100,objectFit:'cover'}}/>}
-                <div style={{padding:14,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                  <div style={{flex:1,minWidth:0,cursor:'pointer'}} onClick={()=>onServiceCompare(s)}>
-                    <div style={{fontSize:15,fontWeight:600}}>{s.name}</div>
-                    <div style={{fontSize:12,color:MUTED,marginTop:2}}>{s.duration}{s.duration_max&&s.duration_max!==s.duration?`–${s.duration_max}`:''} min • {fmtK(s.deposit_amount||branch?.default_deposit||100)} dep</div>
-                    {s.description&&<div style={{fontSize:12,color:MUTED,marginTop:4,lineHeight:1.4}}>{s.description.slice(0,80)}{s.description.length>80?'...':''}</div>}
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
-                    <div style={{textAlign:'right'}}><div style={{fontSize:16,fontWeight:700,color:ACCENT}}>{fmtK(s.price)}</div></div>
-                    <Btn small variant="primary" onClick={()=>navigate('booking',{bookingFlow:{step:1,branch,service:s,staff:null,date:null,time:null}})}>Book</Btn>
-                  </div>
-                </div>
-              </div>
-            ))}</div>
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase' }}>Gallery Photos</label>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {list.map((img, i) => (
+          <div key={i} style={{ width: 100, height: 72, borderRadius: 10, overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
+            <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <button onClick={() => removeImage(i)} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,.6)', border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
           </div>
         ))}
-        {tab==='team'&&(staff.length?
-          <div className="gb-grid-services">{staff.map(s=>(
-            <div key={s.id} style={{background:CARD,borderRadius:16,padding:16,border:`1px solid ${BORDER}`,display:'flex',gap:14,alignItems:'center'}}>
-              <div style={{width:48,height:48,borderRadius:24,background:`linear-gradient(135deg,${GOLD}30,${ACCENT}30)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:700,color:ACCENT,flexShrink:0}}>{s.name?.[0]}</div>
-              <div style={{flex:1,minWidth:0}}><div style={{fontSize:15,fontWeight:600}}>{s.name}</div><div style={{fontSize:13,color:MUTED}}>{s.role||'Stylist'}</div></div>
-              {s.rating&&<div style={{display:'flex',alignItems:'center',gap:3,flexShrink:0}}><Icon name="star" size={14} color={GOLD}/><span style={{fontSize:13,fontWeight:600}}>{s.rating}</span></div>}
+        <div onClick={() => document.getElementById(`gallery-up-${folder}`).click()}
+          style={{ width: 100, height: 72, borderRadius: 10, border: `2px dashed ${C.textLight}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+          {uploading ? (
+            <div style={{ width: 20, height: 20, border: '2px solid ' + C.accent, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          ) : (
+            <><span style={{ fontSize: 18, color: C.textLight }}>+</span><span style={{ fontSize: 10, color: C.textLight }}>Add</span></>
+          )}
+        </div>
+      </div>
+      <input id={`gallery-up-${folder}`} type="file" accept="image/*" multiple onChange={handleFiles} style={{ display: 'none' }} />
+    </div>
+  )
+}
+
+// Cancel Modal component
+function CancelModal({ booking, onCancel, onClose }) {
+  const [reason, setReason] = useState('')
+  return (
+    <Modal title="Cancel Booking" onClose={onClose}>
+      <p style={{ fontSize: 14, color: C.textMuted }}>Are you sure you want to cancel this booking?</p>
+      <Input label="Cancellation Reason" value={reason} onChange={setReason} textarea placeholder="Optional reason…" />
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+        <Btn variant="ghost" onClick={onClose}>Keep Booking</Btn>
+        <Btn variant="danger" onClick={() => onCancel(booking.id, reason)}>Confirm Cancel</Btn>
+      </div>
+    </Modal>
+  )
+}
+
+// Reply Review Modal
+function ReplyModal({ review, clients, onReply, onClose }) {
+  const [reply, setReply] = useState('')
+  const client = clients.find(c => c.id === review.client_id)
+  return (
+    <Modal title="Reply to Review" onClose={onClose}>
+      <div style={{ padding: 14, borderRadius: 10, background: C.bg, marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={{ fontWeight: 600, color: C.text }}>{client?.name || 'Client'}</span>
+          <span style={{ color: C.gold }}>{stars(review.rating_overall)}</span>
+        </div>
+        {review.review_text && <p style={{ margin: 0, fontSize: 13, color: C.textMuted }}>{review.review_text}</p>}
+      </div>
+      <Input label="Your Reply" value={reply} onChange={setReply} textarea placeholder="Write a professional reply…" />
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+        <Btn disabled={!reply.trim()} onClick={() => onReply(review.id, reply.trim())}>Post Reply</Btn>
+      </div>
+    </Modal>
+  )
+}
+
+// Staff Modal
+function StaffModal({ staffMember, onSave, onClose }) {
+  const isEdit = !!staffMember
+  const s = staffMember || {}
+  const [form, setForm] = useState({
+    name: s.name || '', role: s.role || '', phone: s.phone || '', email: s.email || '',
+    bio: s.bio || '', years_experience: s.years_experience || 0,
+    start_time: s.start_time || '08:00:00', end_time: s.end_time || '17:00:00',
+    specialties: (s.specialties || []).join(', '),
+    working_days: s.working_days || [1, 2, 3, 4, 5],
+    profile_photo: s.profile_photo || null,
+  })
+  const up = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  const days = [{ v: 1, l: 'Mon' }, { v: 2, l: 'Tue' }, { v: 3, l: 'Wed' }, { v: 4, l: 'Thu' }, { v: 5, l: 'Fri' }, { v: 6, l: 'Sat' }, { v: 7, l: 'Sun' }]
+  const toggleDay = (d) => up('working_days', form.working_days.includes(d) ? form.working_days.filter(x => x !== d) : [...form.working_days, d])
+  const save = () => {
+    const data = { name: form.name, role: form.role, phone: form.phone, email: form.email, bio: form.bio, years_experience: parseInt(form.years_experience) || 0, start_time: form.start_time, end_time: form.end_time, specialties: form.specialties.split(',').map(x => x.trim()).filter(Boolean), working_days: form.working_days, profile_photo: form.profile_photo }
+    onSave(isEdit ? s.id : null, data)
+  }
+  return (
+    <Modal title={isEdit ? 'Edit Staff' : 'Add Staff Member'} onClose={onClose} wide>
+      <ImageUpload currentUrl={form.profile_photo} bucket="avatars" folder="staff" label="Profile Photo" round
+        onUpload={url => up('profile_photo', url)} onRemove={() => up('profile_photo', null)} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+        <Input label="Full Name" value={form.name} onChange={v => up('name', v)} placeholder="e.g. Mary Mwansa" />
+        <Input label="Role" value={form.role} onChange={v => up('role', v)} placeholder="e.g. Senior Stylist" />
+        <Input label="Phone" value={form.phone} onChange={v => up('phone', v)} placeholder="+260 97..." />
+        <Input label="Email" value={form.email} onChange={v => up('email', v)} placeholder="staff@email.com" />
+        <Input label="Years Experience" value={form.years_experience} onChange={v => up('years_experience', v)} type="number" />
+        <Input label="Specialties" value={form.specialties} onChange={v => up('specialties', v)} placeholder="Braids, Natural Hair" />
+        <Input label="Start Time" value={form.start_time} onChange={v => up('start_time', v)} type="time" />
+        <Input label="End Time" value={form.end_time} onChange={v => up('end_time', v)} type="time" />
+      </div>
+      <Input label="Bio" value={form.bio} onChange={v => up('bio', v)} textarea placeholder="Brief description…" />
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase' }}>Working Days</label>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {days.map(d => <button key={d.v} onClick={() => toggleDay(d.v)} style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', border: `1.5px solid ${form.working_days.includes(d.v) ? C.accent : C.border}`, background: form.working_days.includes(d.v) ? C.accentLight : 'transparent', color: form.working_days.includes(d.v) ? C.accent : C.textMuted }}>{d.l}</button>)}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+        <Btn disabled={!form.name.trim()} onClick={save}>{isEdit ? 'Save Changes' : 'Add Staff'}</Btn>
+      </div>
+    </Modal>
+  )
+}
+
+// Profile Modal
+function ProfileModal({ branch, onSave, onClose }) {
+  const [form, setForm] = useState({
+    name: branch?.name || '', location: branch?.location || '', phone: branch?.phone || '', email: branch?.email || '',
+    description: branch?.description || '', open_time: branch?.open_time || '08:00:00', close_time: branch?.close_time || '17:00:00',
+    images: branch?.images || [],
+    cancellation_hours: branch?.cancellation_hours ?? 2, cancellation_fee_percent: branch?.cancellation_fee_percent ?? 0, no_show_fee_percent: branch?.no_show_fee_percent ?? 50, slot_interval: branch?.slot_interval ?? 30,
+    default_deposit: branch?.default_deposit ?? 100,
+  })
+  const up = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  return (
+    <Modal title="Edit Branch Profile" onClose={onClose} wide>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+        <Input label="Branch Name" value={form.name} onChange={v => up('name', v)} />
+        <Input label="Location" value={form.location} onChange={v => up('location', v)} />
+        <Input label="Phone" value={form.phone} onChange={v => up('phone', v)} />
+        <Input label="Email" value={form.email} onChange={v => up('email', v)} />
+        <Input label="Opens At" value={form.open_time} onChange={v => up('open_time', v)} type="time" />
+        <Input label="Closes At" value={form.close_time} onChange={v => up('close_time', v)} type="time" />
+      </div>
+      <Input label="Description" value={form.description} onChange={v => up('description', v)} textarea />
+      <GalleryUpload images={form.images} bucket="branches" folder={branch?.id || 'new'} onUpdate={urls => up('images', urls)} />
+      <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 16, paddingTop: 16 }}>
+        <h4 style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 12 }}>Cancellation Policy</h4>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 16px' }}>
+          <Input label="Free cancel window (hours)" value={form.cancellation_hours} onChange={v => up('cancellation_hours', parseInt(v) || 0)} type="number" />
+          <Input label="Late cancel fee (%)" value={form.cancellation_fee_percent} onChange={v => up('cancellation_fee_percent', parseInt(v) || 0)} type="number" />
+          <Input label="No-show fee (%)" value={form.no_show_fee_percent} onChange={v => up('no_show_fee_percent', parseInt(v) || 0)} type="number" />
+          <Input label="Booking slot interval (minutes)" value={form.slot_interval} onChange={v => up('slot_interval', parseInt(v) || 30)} options={[{value:15,label:'15 min'},{value:20,label:'20 min'},{value:30,label:'30 min'},{value:45,label:'45 min'},{value:60,label:'60 min'}]} />
+          <Input label="Default Deposit (K)" value={form.default_deposit} onChange={v => up('default_deposit', parseFloat(v) || 0)} type="number" />
+        </div>
+        <p style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>Clients can cancel for free up to {form.cancellation_hours}h before. Late: {form.cancellation_fee_percent}% fee. No-show: {form.no_show_fee_percent}% fee. Default deposit: K{form.default_deposit} (can be overridden per service).</p>
+      </div>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={() => onSave(form)}>Save Changes</Btn>
+      </div>
+    </Modal>
+  )
+}
+
+function BlockTimeModal({ staffMember, blockedTimes, onAdd, onRemove, onClose }) {
+  const [bDate, setBDate] = useState(todayStr())
+  const [bStart, setBStart] = useState('')
+  const [bEnd, setBEnd] = useState('')
+  const [bReason, setBReason] = useState('day_off')
+  const iSt = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', background: '#fff', marginBottom: 10 }
+  const myBlocks = (blockedTimes || []).filter(bt => bt.staff_id === staffMember.id)
+  return (
+    <Modal title={`Time Off — ${staffMember.name}`} onClose={onClose}>
+      <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Date</label>
+      <input type="date" value={bDate} onChange={e => setBDate(e.target.value)} min={todayStr()} style={iSt} />
+      <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Time Range (leave empty for full day off)</label>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+        <input type="time" value={bStart} onChange={e => setBStart(e.target.value)} style={{ ...iSt, flex: 1 }} />
+        <input type="time" value={bEnd} onChange={e => setBEnd(e.target.value)} style={{ ...iSt, flex: 1 }} />
+      </div>
+      <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Reason</label>
+      <select value={bReason} onChange={e => setBReason(e.target.value)} style={iSt}>
+        {[['day_off','Day Off'],['leave','Leave'],['personal','Personal'],['training','Training'],['break','Break']].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={() => onAdd(staffMember.id, bDate, bStart || null, bEnd || null, bReason)}>Add Time Off</Btn>
+      </div>
+      {myBlocks.length > 0 && (
+        <div style={{ marginTop: 20, borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+          <h4 style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Upcoming Time Off</h4>
+          {myBlocks.map(bt => (
+            <div key={bt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${C.border}` }}>
+              <span style={{ fontSize: 13 }}>{fmtDate(bt.block_date)} {bt.start_time ? `${fmtTime(bt.start_time)}–${fmtTime(bt.end_time)}` : '(all day)'} — {bt.reason?.replace('_', ' ')}</span>
+              <button onClick={() => onRemove(bt.id)} style={{ background: C.dangerBg, border: 'none', color: C.danger, borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Remove</button>
             </div>
-          ))}</div>
-        :<EmptyState icon="user" title="No team members" sub="Check back later"/>)}
-        {tab==='reviews'&&(
-          <>
-            {completedHere.length>0&&(
-              <div style={{background:`linear-gradient(135deg,${GOLD}12,${ACCENT}12)`,borderRadius:16,padding:16,marginBottom:16,border:`1px solid ${GOLD}25`}}>
-                <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>Rate your experience</div>
-                {completedHere.slice(0,2).map(b=>(
-                  <button key={b.id} onClick={()=>onReview(b)} style={{width:'100%',background:CARD,borderRadius:12,padding:12,marginBottom:6,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',alignItems:'center',gap:10,textAlign:'left'}}>
-                    <Icon name="star" size={18} color={GOLD}/>
-                    <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{b.booking_date}</div><div style={{fontSize:12,color:MUTED}}>Tap to leave a review</div></div>
-                    <Icon name="chevR" size={14} color={MUTED}/>
-                  </button>
-                ))}
+          ))}
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+const SERVICE_SUGGESTIONS = {
+  Hair: ['Silk Press', 'Blow Dry', 'Hair Cut', 'Trim', 'Relaxer', 'Hair Coloring', 'Natural Hair Treatment', 'Wash & Set', 'Loc Maintenance', 'Twist Out', 'Deep Conditioning'],
+  Braids: ['Box Braids', 'Cornrows', 'Knotless Braids', 'Lemonade Braids', 'Crochet Braids', 'Fulani Braids', 'Passion Twists', 'Faux Locs', 'Senegalese Twists', 'Ghana Braids', 'Feed-in Braids'],
+  Nails: ['Gel Manicure', 'Acrylic Full Set', 'Pedicure Deluxe', 'Nail Art', 'Gel Pedicure', 'Acrylic Fill', 'Nail Removal', 'French Tips', 'Press-On Nails'],
+  Skincare: ['Facial Classic', 'Deep Cleansing Facial', 'Chemical Peel', 'Microdermabrasion', 'LED Therapy', 'Acne Treatment', 'Anti-Aging Facial'],
+  Spa: ['Full Body Massage', 'Back & Shoulder Massage', 'Hot Stone Massage', 'Aromatherapy Massage', 'Body Scrub', 'Body Wrap', 'Foot Massage'],
+  Makeup: ['Makeup Application', 'Bridal Makeup', 'Photo Shoot Makeup', 'Makeup Lesson', 'Evening Glam', 'Natural/Everyday Look'],
+  Lashes: ['Classic Lash Extensions', 'Volume Lash Extensions', 'Lash Lift & Tint', 'Lash Fill', 'Lash Removal', 'Mega Volume'],
+  Barber: ['Haircut', 'Fade', 'Lineup', 'Beard Trim', 'Hot Towel Shave', 'Hair & Beard Combo', 'Kid\'s Cut'],
+  Wigs: ['Wig Install', 'Wig Customization', 'Frontal Wig Install', 'Closure Install', 'Wig Wash & Style', 'Wig Revamp'],
+  Other: [],
+}
+const SERVICE_CATEGORIES = Object.keys(SERVICE_SUGGESTIONS)
+
+function ServiceModal({ service, branchId, onSave, onClose, existingAddons }) {
+  const [form, setForm] = useState({
+    name: service?.name || '',
+    category: service?.category || 'Hair',
+    customCategory: service?.category && !SERVICE_CATEGORIES.includes(service.category) ? service.category : '',
+    price: service?.price || '',
+    duration: service?.duration || 60,
+    duration_max: service?.duration_max || '',
+    description: service?.description || '',
+    is_active: service?.is_active ?? true,
+    deposit_amount: service?.deposit_amount ?? '',
+  })
+  const [images, setImages] = useState(service?.images || [])
+  const [addons, setAddons] = useState(existingAddons || [])
+  const [newAddon, setNewAddon] = useState({ name: '', price: '' })
+  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(!service)
+  const up = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const suggestions = SERVICE_SUGGESTIONS[form.category] || []
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { alert('Max 5MB per image'); return }
+    if (images.length >= 3) { alert('Maximum 3 images per service'); return }
+    setUploading(true)
+    try {
+      const url = await uploadImage('service-images', branchId, file)
+      setImages(prev => [...prev, url])
+    } catch (err) { showToast('Upload failed: ' + friendlyError(err.message), 'error') }
+    setUploading(false)
+  }
+
+  const removeImage = (idx) => setImages(prev => prev.filter((_, i) => i !== idx))
+
+  const addAddon = () => {
+    if (!newAddon.name || !newAddon.price) return
+    setAddons(prev => [...prev, { name: newAddon.name, price: parseFloat(newAddon.price), is_active: true }])
+    setNewAddon({ name: '', price: '' })
+  }
+
+  const removeAddon = (idx) => setAddons(prev => prev.filter((_, i) => i !== idx))
+
+  const handleSubmit = async () => {
+    if (!form.name || !form.price) return
+    setSaving(true)
+    const data = {
+      name: form.name,
+      category: form.category,
+      price: parseFloat(form.price),
+      duration: parseInt(form.duration) || 60,
+      duration_max: form.duration_max ? parseInt(form.duration_max) : null,
+      description: form.description,
+      deposit_amount: form.deposit_amount ? parseFloat(form.deposit_amount) : null,
+      images,
+      is_active: form.is_active,
+      branch_id: branchId,
+    }
+    if (service?.id) {
+      await onSave({ ...data, id: service.id, addons }, 'update')
+    } else {
+      await onSave({ ...data, addons }, 'create')
+    }
+    setSaving(false)
+  }
+
+  const iSt = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', background: '#fff', marginBottom: 12, color: C.text }
+
+  return (
+    <Modal title={service ? 'Edit Service' : 'Add New Service'} onClose={onClose}>
+      {/* Category Selection */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 6 }}>Category *</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+          {SERVICE_CATEGORIES.map(cat => (
+            <button key={cat} onClick={() => { up('category', cat); up('customCategory', ''); if (!service) { up('name', ''); setShowSuggestions(true) } }}
+              style={{ padding: '6px 14px', borderRadius: 20, border: `1.5px solid ${form.category === cat && !form.customCategory ? C.accent : C.border}`, background: form.category === cat && !form.customCategory ? C.accentLight : 'transparent', color: form.category === cat && !form.customCategory ? C.accent : C.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', transition: 'all .15s' }}>
+              {cat}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12, color: C.textMuted }}>or type your own:</span>
+          <input value={form.customCategory || ''} onChange={e => { up('customCategory', e.target.value); if(e.target.value) up('category', e.target.value); }} placeholder="e.g. Threading, Tattoo, Piercing..." style={{ flex: 1, padding: '6px 12px', borderRadius: 8, border: `1.5px solid ${form.customCategory ? C.accent : C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text, background: form.customCategory ? C.accentLight : '#fff' }} />
+        </div>
+      </div>
+
+      {/* Service Name — suggestions or custom */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 6 }}>Service Name *</label>
+        {showSuggestions && suggestions.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: C.textLight, marginBottom: 6 }}>Quick pick or type your own:</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {suggestions.map(s => (
+                <button key={s} onClick={() => { up('name', s); setShowSuggestions(false) }}
+                  style={{ padding: '5px 12px', borderRadius: 8, border: `1px solid ${form.name === s ? C.accent : C.border}`, background: form.name === s ? C.accentLight : '#fff', color: form.name === s ? C.accent : C.text, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans', transition: 'all .15s' }}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <input value={form.name} onChange={e => { up('name', e.target.value); setShowSuggestions(false) }} placeholder="Type service name..." style={iSt}
+          onFocus={() => { if (!form.name && suggestions.length) setShowSuggestions(true) }} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {/* Price */}
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Price (K) *</label>
+          <input type="number" value={form.price} onChange={e => up('price', e.target.value)} placeholder="e.g. 350" style={iSt} />
+        </div>
+        {/* Status */}
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Status</label>
+          <select value={form.is_active ? 'active' : 'inactive'} onChange={e => up('is_active', e.target.value === 'active')} style={iSt}>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        {/* Duration min */}
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Duration (mins) *</label>
+          <input type="number" value={form.duration} onChange={e => up('duration', e.target.value)} placeholder="60" style={iSt} />
+        </div>
+        {/* Duration max */}
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Max Duration (mins)</label>
+          <input type="number" value={form.duration_max} onChange={e => up('duration_max', e.target.value)} placeholder="Optional" style={iSt} />
+        </div>
+      </div>
+
+      {/* Description */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Description</label>
+        <textarea value={form.description} onChange={e => up('description', e.target.value)} placeholder="Describe what's included in this service..." rows={3} style={{ ...iSt, resize: 'vertical' }} />
+      </div>
+
+      {/* Images (up to 3) */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 6 }}>Photos (up to 3)</label>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {images.map((url, i) => (
+            <div key={i} style={{ position: 'relative', width: 90, height: 90, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+              <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <button onClick={() => removeImage(i)} style={{ position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,.6)', border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>×</button>
+            </div>
+          ))}
+          {images.length < 3 && (
+            <div onClick={() => document.getElementById('svc-img-upload').click()}
+              style={{ width: 90, height: 90, borderRadius: 10, border: `2px dashed ${C.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: C.textLight, transition: 'border-color .2s' }}>
+              {uploading ? (
+                <div style={{ width: 20, height: 20, border: `2px solid ${C.border}`, borderTopColor: C.accent, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              ) : (
+                <><span style={{ fontSize: 24, lineHeight: 1 }}>+</span><span style={{ fontSize: 10, marginTop: 2 }}>Add Photo</span></>
+              )}
+            </div>
+          )}
+        </div>
+        <input id="svc-img-upload" type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageUpload} />
+      </div>
+
+      {/* Add-ons */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 6 }}>Add-ons (extras clients can add)</label>
+        {addons.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            {addons.map((a, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: C.bg, borderRadius: 8, marginBottom: 4, border: `1px solid ${C.border}` }}>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: C.text }}>{a.name}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>+K{a.price}</span>
+                <button onClick={() => removeAddon(i)} style={{ background: 'none', border: 'none', color: C.danger, cursor: 'pointer', fontSize: 16, padding: 0, lineHeight: 1 }}>×</button>
               </div>
-            )}
-            {reviews.length?(
-              <>
-                <div style={{background:CARD,borderRadius:16,padding:20,marginBottom:16,border:`1px solid ${BORDER}`,textAlign:'center',maxWidth:280}}>
-                  <div style={{fontSize:36,fontWeight:700,fontFamily:'Fraunces,serif',color:DARK}}>{avg}</div>
-                  <Stars rating={Math.round(+avg)} size={18}/><div style={{fontSize:13,color:MUTED,marginTop:4}}>{reviews.length} review{reviews.length!==1?'s':''}</div>
-                </div>
-                <div style={{display:'grid',gap:10,gridTemplateColumns:bp==='desktop'?'repeat(2,1fr)':'1fr'}}>
-                  {reviews.slice(0,reviewsShown).map(r=>(
-                    <div key={r.id} style={{background:CARD,borderRadius:16,padding:16,border:`1px solid ${BORDER}`}}>
-                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}><Stars rating={r.rating_overall} size={14}/><span style={{fontSize:11,color:MUTED}}>{r.created_at?.slice(0,10)}</span></div>
-                      <p style={{fontSize:14,lineHeight:1.6,color:DARK}}>{r.review_text}</p>
-                      {r.response_text&&<div style={{marginTop:10,padding:10,background:`${ACCENT}06`,borderRadius:10,borderLeft:`3px solid ${ACCENT}`}}><span style={{fontSize:11,fontWeight:600,color:ACCENT}}>Response:</span><p style={{fontSize:13,color:MUTED,marginTop:4}}>{r.response_text}</p></div>}
-                    </div>
-                  ))}
-                </div>
-                {reviews.length>reviewsShown&&<div style={{textAlign:'center',marginTop:14}}><button onClick={()=>setReviewsShown(c=>c+8)} style={{padding:'10px 28px',borderRadius:12,border:`1.5px solid ${BORDER}`,background:CARD,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',minHeight:44}}>Show more reviews ({reviews.length-reviewsShown} more)</button></div>}
-              </>
-            ):<EmptyState icon="star" title="No reviews yet" sub="Be the first!"/>}
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={newAddon.name} onChange={e => setNewAddon(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Extra Length" style={{ ...iSt, flex: 2, marginBottom: 0 }} />
+          <input type="number" value={newAddon.price} onChange={e => setNewAddon(p => ({ ...p, price: e.target.value }))} placeholder="Price" style={{ ...iSt, flex: 1, marginBottom: 0 }} />
+          <button onClick={addAddon} disabled={!newAddon.name || !newAddon.price}
+            style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: newAddon.name && newAddon.price ? C.accent : C.border, color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans', whiteSpace: 'nowrap' }}>+ Add</button>
+        </div>
+      </div>
+
+      {/* Deposit Amount (per-service override) */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Deposit Amount (K)</label>
+        <input type="number" value={form.deposit_amount} onChange={e => up('deposit_amount', e.target.value)} placeholder="Leave empty to use branch default" style={iSt} />
+        <span style={{ fontSize: 11, color: C.textMuted }}>Override deposit for this service. Leave blank to use your branch's default deposit.</span>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+        <Btn onClick={handleSubmit} disabled={saving || !form.name || !form.price}>{saving ? 'Saving...' : service ? 'Update Service' : 'Add Service'}</Btn>
+        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+      </div>
+    </Modal>
+  )
+}
+
+function WalkinModal({ services, staff, branch, clients, onSave, onClose }) {
+  const [form, setForm] = useState({ service_id: '', staff_id: '', client_id: '', walk_in_name: '', client_notes: '' })
+  const up = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const iSt = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', background: '#fff', marginBottom: 10, color: C.text }
+  const sv = services.find(s => s.id === form.service_id)
+  const [clientSearch, setClientSearch] = useState('')
+  const matchedClients = clientSearch.length >= 2 ? clients.filter(c => c.name?.toLowerCase().includes(clientSearch.toLowerCase()) || c.phone?.includes(clientSearch)).slice(0, 5) : []
+
+  return (
+    <Modal title="Walk-in Booking" onClose={onClose}>
+      <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>Create a booking for a client who walked in without an appointment.</p>
+
+      <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Service *</label>
+      <select value={form.service_id} onChange={e => { const s = services.find(x => x.id === e.target.value); up('service_id', e.target.value); if (s) up('total_amount', s.price || 0) }} style={iSt}>
+        <option value="">Select a service…</option>
+        {services.filter(s => s.is_active !== false).map(s => <option key={s.id} value={s.id}>{s.name} — {fmt(s.price)}</option>)}
+      </select>
+
+      <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Stylist</label>
+      <select value={form.staff_id} onChange={e => up('staff_id', e.target.value)} style={iSt}>
+        <option value="">Any available</option>
+        {staff.map(s => <option key={s.id} value={s.id}>{s.name} — {s.role || 'Stylist'}</option>)}
+      </select>
+
+      <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Existing Client (search by name/phone)</label>
+      <input value={clientSearch} onChange={e => { setClientSearch(e.target.value); up('client_id', ''); up('walk_in_name', '') }} placeholder="Type to search…" style={iSt} />
+      {matchedClients.length > 0 && (
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 10, maxHeight: 120, overflowY: 'auto' }}>
+          {matchedClients.map(c => (
+            <div key={c.id} onClick={() => { up('client_id', c.id); up('walk_in_name', c.name); setClientSearch(c.name) }}
+              style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: `1px solid ${C.border}`, fontSize: 13, background: form.client_id === c.id ? C.accentLight : 'transparent' }}>
+              {c.name} — {c.phone || c.email}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!form.client_id && (
+        <>
+          <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Or enter walk-in name</label>
+          <input value={form.walk_in_name} onChange={e => up('walk_in_name', e.target.value)} placeholder="Client name" style={iSt} />
+        </>
+      )}
+
+      <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Notes</label>
+      <textarea value={form.client_notes} onChange={e => up('client_notes', e.target.value)} placeholder="Any special requests…" rows={2} style={{ ...iSt, resize: 'vertical' }} />
+
+      {sv && <div style={{ padding: 12, borderRadius: 8, background: C.accentLight, marginBottom: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: C.accent }}>{sv.name}</div>
+        <div style={{ fontSize: 12, color: C.textMuted }}>{sv.duration || 60} min — {fmt(sv.price)}</div>
+      </div>}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={() => { if (!form.service_id) return; onSave({ ...form, duration: sv?.duration || 60, total_amount: sv?.price || 0 }) }} disabled={!form.service_id}>Create Walk-in</Btn>
+      </div>
+    </Modal>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════════════════════
+// ═════ AUTH LOGIN SCREEN ═════
+function StudioLogin({ onAuth }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [mode, setMode] = useState('login')
+  const bp = useBreakpoint()
+
+  const handleLogin = async () => {
+    if (!email || !password) return setError('Please fill in all fields')
+    setSubmitting(true); setError('')
+    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
+    setSubmitting(false)
+    if (err) return setError(friendlyError(err.message))
+    onAuth(data.user)
+  }
+
+  const handleSignup = async () => {
+    if (!email || !password || !name.trim()) return setError('Name, email & password required')
+    if (password.length < 6) return setError('Password must be at least 6 characters')
+    setSubmitting(true); setError('')
+    const { data, error: err } = await supabase.auth.signUp({ email, password, options: { data: { name, role: 'studio_owner' }, emailRedirectTo: window.location.origin } })
+    setSubmitting(false)
+    if (err) return setError(friendlyError(err.message))
+    setMode('confirm')
+  }
+
+  const handleForgot = async () => {
+    if (!email) return setError('Enter your email address')
+    setSubmitting(true); setError('')
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+    setSubmitting(false)
+    if (err) return setError(friendlyError(err.message))
+    setMode('reset_sent')
+  }
+
+  const iStyle = { width: '100%', padding: '14px 16px', borderRadius: 12, border: `1.5px solid ${C.border}`, fontSize: 15, background: C.white, color: C.text, fontFamily: 'DM Sans', marginBottom: 12, outline: 'none', boxSizing: 'border-box', minHeight: 48 }
+  const isWide = bp !== 'mobile'
+
+  return (
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: isWide ? 'row' : 'column', fontFamily: "'DM Sans', sans-serif" }}>
+      <style>{`* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; } input:focus { border-color: ${C.accent} !important; box-shadow: 0 0 0 3px rgba(196,125,90,0.15); } @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } } .fade-up { animation: fadeUp .5s ease; }`}</style>
+      <div style={{ background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, padding: isWide ? '60px 48px' : '52px 24px 36px', borderRadius: isWide ? 0 : '0 0 32px 32px', textAlign: isWide ? 'left' : 'center', flex: isWide ? '0 0 45%' : 'none', display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: isWide ? '100vh' : 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: isWide ? 'flex-start' : 'center', marginBottom: 16 }}>
+          <LogoIcon size={48}/>
+        </div>
+        <h1 style={{ fontFamily: 'Fraunces, serif', fontSize: isWide ? 40 : 32, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Lumin<span style={{color:'rgba(255,255,255,.7)'}}>Book</span> Studio</h1>
+        <p style={{ color: 'rgba(255,255,255,.85)', fontSize: isWide ? 18 : 15, maxWidth: 360, lineHeight: 1.5 }}>Manage your bookings, staff & clients from one dashboard</p>
+      </div>
+      <div className="fade-up" style={{ padding: isWide ? '48px 56px' : '24px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: isWide ? 480 : '100%' }}>
+        {mode === 'confirm' ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}><Icon name="mail" size={56} color={C.accent} /></div>
+            <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Check your email</h2>
+            <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>Confirmation link sent to <strong>{email}</strong>. Click it to activate, then come back and sign in.</p>
+            <Btn full variant="primary" onClick={() => { setMode('login'); setError('') }}>Go to Login</Btn>
+          </div>
+        ) : mode === 'reset_sent' ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}><Icon name="check" size={56} color={C.success} /></div>
+            <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Reset link sent</h2>
+            <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 24 }}>Check <strong>{email}</strong> for a password reset link.</p>
+            <Btn full variant="primary" onClick={() => { setMode('login'); setError('') }}>Back to Login</Btn>
+          </div>
+        ) : mode === 'forgot' ? (
+          <>
+            <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Reset password</h2>
+            <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 24 }}>Enter your email for a reset link</p>
+            {error && <div style={{ background: '#fce4ec', color: '#c62828', padding: '12px 16px', borderRadius: 12, fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{error}</div>}
+            <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" type="email" style={iStyle} onKeyDown={e => e.key === 'Enter' && handleForgot()} />
+            <Btn full variant="primary" disabled={submitting} onClick={handleForgot} style={{ marginBottom: 12 }}>{submitting ? 'Sending…' : 'Send Reset Link'}</Btn>
+            <button onClick={() => { setMode('login'); setError('') }} style={{ background: 'none', border: 'none', color: C.accent, fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 8, textAlign: 'center', width: '100%' }}>Back to login</button>
+          </>
+        ) : (
+          <>
+            <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 24, fontWeight: 700, marginBottom: 4 }}>{mode === 'login' ? 'Welcome back' : 'Register your studio'}</h2>
+            <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 24 }}>{mode === 'login' ? 'Sign in to your dashboard' : 'Create a studio owner account'}</p>
+            {error && <div style={{ background: '#fce4ec', color: '#c62828', padding: '12px 16px', borderRadius: 12, fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{error}</div>}
+            {mode === 'signup' && <input value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" style={iStyle} />}
+            <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" type="email" style={iStyle} />
+            <input value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" type="password" style={iStyle} onKeyDown={e => e.key === 'Enter' && (mode === 'login' ? handleLogin() : handleSignup())} />
+            <Btn full variant="primary" disabled={submitting} onClick={mode === 'login' ? handleLogin : handleSignup} style={{ marginBottom: 12 }}>{submitting ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}</Btn>
+            {mode === 'login' && <button onClick={() => { setMode('forgot'); setError('') }} style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 13, cursor: 'pointer', padding: 4, marginBottom: 8, textAlign: 'center', width: '100%' }}>Forgot password?</button>}
+            <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }} style={{ background: 'none', border: 'none', color: C.accent, fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 8, textAlign: 'center', width: '100%' }}>{mode === 'login' ? "Don't have an account? Register" : 'Already have an account? Sign in'}</button>
           </>
         )}
       </div>
-      <div style={{position:'fixed',bottom:0,left:bp==='desktop'?SIDEBAR_W:0,right:0,padding:'12px 20px',background:'rgba(250,247,245,.92)',backdropFilter:'blur(16px)',borderTop:`1px solid ${BORDER}`,zIndex:90}}>
-        <div style={{maxWidth:480}}><Btn full variant="primary" onClick={()=>navigate('booking',{bookingFlow:{step:0,branch,service:null,staff:null,date:null,time:null}})} style={{borderRadius:14,fontSize:16,boxShadow:`0 4px 20px ${ACCENT}40`}}><Icon name="sparkle" size={16} color="#fff"/> Book Appointment</Btn></div>
-      </div>
     </div>
-  );
+  )
 }
 
-function BookingFlow({flow,setBookingFlow,staff,services,createBooking,goBack,bp,client,paymentState,setPaymentState,cancelPayment}) {
-  if(!flow) return null;
-  const update=data=>setBookingFlow(f=>({...f,...data}));
-  const step=flow.step||0;
-  const deposit = parseFloat(flow.service?.deposit_amount) || parseFloat(flow.branch?.default_deposit) || 100;
-  const pad=bp==='desktop'?'32px':'20px';
-  const openH=parseInt(flow.branch?.open_time?.slice(0,2))||8;const openM=parseInt(flow.branch?.open_time?.slice(3,5))||0;
-  const closeH=parseInt(flow.branch?.close_time?.slice(0,2))||17;const closeM=parseInt(flow.branch?.close_time?.slice(3,5))||0;
-  const interval=flow.branch?.slot_interval||30;
-  const timeSlots=[];
-  for(let m=openH*60+openM;m<closeH*60+closeM;m+=interval){const h=Math.floor(m/60),mi=m%60;timeSlots.push(`${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}`);}
-  const [bookedSlots,setBookedSlots]=useState([]);
-  const [blockedSlots,setBlockedSlots]=useState([]);
+function ResetPasswordOverlay({ onDone }) {
+  const [pw, setPw] = useState('')
+  const [pw2, setPw2] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [done, setDone] = useState(false)
+  const iStyle = { width: '100%', padding: '14px 16px', borderRadius: 12, border: `1.5px solid ${C.border}`, fontSize: 15, background: '#fff', color: C.text, fontFamily: 'DM Sans', marginBottom: 12, outline: 'none', boxSizing: 'border-box', minHeight: 48 }
+  const handleReset = async () => {
+    if (!pw || !pw2) return setError('Please fill in both fields')
+    if (pw.length < 6) return setError('Password must be at least 6 characters')
+    if (pw !== pw2) return setError('Passwords do not match')
+    setSaving(true); setError('')
+    const { error: err } = await supabase.auth.updateUser({ password: pw })
+    setSaving(false)
+    if (err) return setError(friendlyError(err.message))
+    setDone(true)
+  }
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: '#fff', borderRadius: 20, padding: 40, maxWidth: 400, width: '100%' }}>
+        {done ? (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>✓</div>
+            <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Password updated</h2>
+            <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 24 }}>Your password has been changed successfully.</p>
+            <Btn full variant="primary" onClick={onDone}>Continue</Btn>
+          </div>
+        ) : (
+          <>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🔑</div>
+              <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Set new password</h2>
+              <p style={{ color: C.textMuted, fontSize: 14 }}>Enter your new password below</p>
+            </div>
+            {error && <div style={{ background: '#fce8e8', color: C.danger, padding: '12px 16px', borderRadius: 12, fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{error}</div>}
+            <input value={pw} onChange={e => setPw(e.target.value)} placeholder="New password" type="password" style={iStyle} autoFocus />
+            <input value={pw2} onChange={e => setPw2(e.target.value)} placeholder="Confirm password" type="password" style={iStyle} onKeyDown={e => e.key === 'Enter' && handleReset()} />
+            <Btn full variant="primary" disabled={saving} onClick={handleReset} style={{ marginBottom: 12 }}>{saving ? 'Saving…' : 'Update Password'}</Btn>
+            <button onClick={onDone} style={{ width: '100%', background: 'none', border: 'none', color: C.textMuted, fontSize: 13, cursor: 'pointer', padding: 8, textAlign: 'center' }}>Skip for now</button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
 
-  useEffect(()=>{
-    if(!flow.date)return;
-    if(flow.staff?.id){
-      // Specific staff: show their booked slots
-      supabase.from('bookings').select('booking_time').eq('booking_date',flow.date).eq('staff_id',flow.staff.id).neq('status','cancelled')
-        .then(({data})=>setBookedSlots((data||[]).map(b=>b.booking_time?.slice(0,5))));
-      supabase.from('staff_blocked_times').select('*').eq('staff_id',flow.staff.id).eq('block_date',flow.date).then(({data})=>{
-        if(!data?.length){setBlockedSlots([]);return}
-        const bl=[];data.forEach(bt=>{if(!bt.start_time)timeSlots.forEach(t=>bl.push(t));else{const s=bt.start_time?.slice(0,5),e=bt.end_time?.slice(0,5);timeSlots.forEach(t=>{if(t>=s&&t<=e)bl.push(t)})}});setBlockedSlots(bl);
-      });
-    }else{
-      // Any Available: slot is full only when ALL staff at this branch are booked
-      const branchStaff=staff.filter(s=>s.branch_id===flow.branch?.id&&s.is_active!==false);
-      const totalStaff=Math.max(branchStaff.length,1);
-      supabase.from('bookings').select('booking_time').eq('booking_date',flow.date).eq('branch_id',flow.branch?.id).neq('status','cancelled')
-        .then(({data})=>{
-          const counts={};(data||[]).forEach(b=>{const t=b.booking_time?.slice(0,5);counts[t]=(counts[t]||0)+1});
-          setBookedSlots(Object.entries(counts).filter(([,c])=>c>=totalStaff).map(([t])=>t));
-        });
-      setBlockedSlots([]);
-    }
-  },[flow.date,flow.staff]);
+function StudioOnboarding({ authUser, onComplete, onLogout }) {
+  const [form, setForm] = useState({ name: '', location: '', phone: '', open_time: '08:00', close_time: '18:00', slot_interval: 30 })
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
-  const maxDays=flow.branch?.max_booking_days_ahead||30;
-  const dates=[];for(let i=0;i<maxDays;i++){const d=new Date();d.setDate(d.getDate()+i);dates.push(d.toISOString().slice(0,10))}
-  const grouped={};services.forEach(s=>{if(!grouped[s.category])grouped[s.category]=[];grouped[s.category].push(s)});
-  const steps=[{label:'Service'},{label:'Stylist'},{label:'Date & Time'},{label:'Confirm'}];
+  const handleCreate = async () => {
+    if (!form.name.trim()) return setError('Studio name is required')
+    setSubmitting(true); setError('')
+    const { data, error: err } = await supabase.from('branches').insert({
+      name: form.name.trim(),
+      location: form.location.trim() || null,
+      phone: form.phone.trim() || null,
+      open_time: form.open_time,
+      close_time: form.close_time,
+      slot_interval: form.slot_interval,
+      owner_email: authUser.email.toLowerCase(),
+      is_active: false,
+      approval_status: 'pending',
+      cancellation_hours: 2,
+      cancellation_fee_percent: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }).select().single()
+    setSubmitting(false)
+    if (err) return setError(friendlyError(err.message))
+    onComplete(data)
+  }
+
+  const is = { width: '100%', padding: '13px 16px', borderRadius: 10, border: `1.5px solid ${C.border}`, fontSize: 14, background: '#fff', color: C.text, fontFamily: 'DM Sans', marginBottom: 12, outline: 'none', boxSizing: 'border-box' }
 
   return (
-    <div className="fade-up">
-      <div style={{padding:`20px ${pad} 16px`,background:CARD,borderBottom:`1px solid ${BORDER}`}}>
-        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
-          <button onClick={goBack} className="touch-target" style={{background:'none',border:'none',cursor:'pointer'}}><Icon name="back" size={22} color={DARK}/></button>
-          <div><h2 style={{fontSize:18,fontWeight:700}}>Book Appointment</h2><p style={{fontSize:13,color:MUTED}}>{flow.branch?.name}</p></div>
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif" }}>
+      <style>{`* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; } input:focus { border-color: ${C.accent} !important; box-shadow: 0 0 0 3px rgba(196,125,90,0.15); }`}</style>
+      <div style={{ width: '100%', maxWidth: 440, padding: 32 }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><Icon name="sparkle" size={28} color="#fff" /></div>
+          <h1 style={{ fontFamily: 'Fraunces', fontSize: 26, fontWeight: 700, marginBottom: 6 }}>Set Up Your Studio</h1>
+          <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6 }}>Welcome! Let's create your studio profile to get started with LuminBook Studio.</p>
         </div>
-        <div style={{display:'flex',gap:4,maxWidth:400}}>{steps.map((s,i)=><div key={i} style={{flex:1}}><div style={{height:3,borderRadius:2,background:i<=step?ACCENT:BORDER}}/><div style={{fontSize:10,color:i<=step?ACCENT:MUTED,marginTop:4,fontWeight:600}}>{s.label}</div></div>)}</div>
-      </div>
-      <div style={{padding:`20px ${pad} 120px`,maxWidth:800}}>
-        {step===0&&(
-          <div className="fade-up">
-            <h3 style={{fontFamily:'Fraunces,serif',fontSize:20,fontWeight:600,marginBottom:16}}>Choose a service</h3>
-            {Object.entries(grouped).map(([cat,svcs])=>(
-              <div key={cat} style={{marginBottom:20}}>
-                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}><CatIcon cat={cat}/><h4 style={{fontSize:14,fontWeight:700,color:MUTED,textTransform:'uppercase',letterSpacing:.5}}>{cat}</h4></div>
-                <div className="gb-grid-services">{svcs.map(s=>(
-                  <div key={s.id} onClick={()=>update({service:s,step:1})} style={{background:flow.service?.id===s.id?`${ACCENT}08`:CARD,borderRadius:16,padding:16,border:flow.service?.id===s.id?`2px solid ${ACCENT}`:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',minHeight:60}}>
-                    <div style={{display:'flex',gap:12,alignItems:'center',flex:1,minWidth:0}}>
-                      <div style={{width:44,height:44,borderRadius:12,background:`linear-gradient(135deg,${ACCENT}15,${ROSE}15)`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><CatIcon cat={s.category} size={20}/></div>
-                      <div><div style={{fontSize:15,fontWeight:600}}>{s.name}</div><div style={{fontSize:12,color:MUTED,marginTop:2}}>{s.duration}{s.duration_max&&s.duration_max!==s.duration?`–${s.duration_max}`:''} min</div></div>
-                    </div>
-                    <div style={{fontSize:16,fontWeight:700,color:ACCENT,flexShrink:0}}>{fmtK(s.price)}</div>
-                  </div>
-                ))}</div>
-              </div>
-            ))}
+
+        {error && <div style={{ background: '#fce8e8', color: C.danger, padding: '12px 16px', borderRadius: 10, fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{error}</div>}
+
+        <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Studio Name *</label></div>
+        <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Glow & Grace, King Cuts Barber" style={is} />
+
+        <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Location</label></div>
+        <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="e.g. Kabulonga, Lusaka" style={is} />
+
+        <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Phone</label></div>
+        <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+260 97X XXX XXX" style={is} />
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div>
+            <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Opens</label></div>
+            <input type="time" value={form.open_time} onChange={e => setForm(f => ({ ...f, open_time: e.target.value }))} style={is} />
           </div>
-        )}
-        {step===1&&(()=>{
-          const svcCat=flow.service?.category?.toLowerCase();
-          const filtered=staff.filter(s=>{if(!s.specialties||!svcCat)return true;const specs=(Array.isArray(s.specialties)?s.specialties:[s.specialties]).map(sp=>sp.toLowerCase());return specs.some(sp=>sp.includes(svcCat)||svcCat.includes(sp))});
-          const display=filtered.length>0?filtered:staff;
-          return(
-            <div className="fade-up">
-              <h3 style={{fontFamily:'Fraunces,serif',fontSize:20,fontWeight:600,marginBottom:6}}>Choose your stylist</h3>
-              <p style={{fontSize:13,color:MUTED,marginBottom:16}}>Or let us pick the best</p>
-              <div className="gb-grid-services">
-                <div onClick={()=>update({staff:{id:null,name:'Any Available'},step:2})} style={{background:CARD,borderRadius:16,padding:16,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',gap:14,alignItems:'center',minHeight:72}}>
-                  <div style={{width:48,height:48,borderRadius:24,background:`linear-gradient(135deg,${GOLD}40,${ACCENT}40)`,display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name="sparkle" size={22} color={ACCENT}/></div>
-                  <div style={{flex:1}}><div style={{fontSize:15,fontWeight:600}}>Any Available</div><div style={{fontSize:13,color:MUTED}}>Best match for you</div></div>
-                  <Icon name="chevR" size={18} color={MUTED}/>
-                </div>
-                {display.map(s=>(
-                  <div key={s.id} onClick={()=>update({staff:s,step:2})} style={{background:CARD,borderRadius:16,padding:16,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',gap:14,alignItems:'center',minHeight:72}}>
-                    <div style={{width:48,height:48,borderRadius:24,background:`linear-gradient(135deg,${GOLD}30,${ACCENT}30)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:700,color:ACCENT}}>{s.name?.[0]}</div>
-                    <div style={{flex:1}}><div style={{fontSize:15,fontWeight:600}}>{s.name}</div><div style={{fontSize:13,color:MUTED}}>{s.role||'Stylist'}</div></div>
-                    {s.rating&&<div style={{display:'flex',alignItems:'center',gap:3}}><Icon name="star" size={14} color={GOLD}/><span style={{fontSize:13,fontWeight:600}}>{s.rating}</span></div>}
-                    <Icon name="chevR" size={18} color={MUTED}/>
-                  </div>
-                ))}
-              </div>
-              <div style={{marginTop:16}}><Btn variant="ghost" onClick={()=>update({step:0})}><Icon name="back" size={14} color={MUTED}/> Back</Btn></div>
-            </div>
-          );
-        })()}
-        {step===2&&(
-          <div className="fade-up">
-            <h3 style={{fontFamily:'Fraunces,serif',fontSize:20,fontWeight:600,marginBottom:16}}>Pick a date & time</h3>
-            <div style={{marginBottom:20}}>
-              <h4 style={{fontSize:14,fontWeight:600,marginBottom:10,color:MUTED}}>DATE</h4>
-              <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:8}}>
-                {dates.map(d=>{const dt=new Date(d+'T00:00:00');const isToday=d===todayStr();const sel=flow.date===d;return(
-                  <div key={d} onClick={()=>update({date:d})} style={{flexShrink:0,width:64,padding:'10px 0',borderRadius:14,textAlign:'center',cursor:'pointer',minHeight:72,background:sel?ACCENT:CARD,border:sel?`2px solid ${ACCENT}`:`1px solid ${BORDER}`}}>
-                    <div style={{fontSize:11,fontWeight:600,color:sel?'rgba(255,255,255,.7)':MUTED}}>{isToday?'Today':DAYS[dt.getDay()]}</div>
-                    <div style={{fontSize:20,fontWeight:700,color:sel?'#fff':DARK,margin:'2px 0'}}>{dt.getDate()}</div>
-                    <div style={{fontSize:11,color:sel?'rgba(255,255,255,.7)':MUTED}}>{MONTHS[dt.getMonth()]}</div>
-                  </div>
-                )})}
-              </div>
-            </div>
-            {flow.date&&(
-              <div className="fade-up">
-                <h4 style={{fontSize:14,fontWeight:600,marginBottom:10,color:MUTED}}>TIME</h4>
-                <div className="gb-time-grid">
-                  {timeSlots.map(t=>{const sel=flow.time===t;const unavail=bookedSlots.includes(t)||blockedSlots.includes(t);
-                    // Grey out past times for today
-                    const isPast = flow.date===todayStr() && t <= new Date().toTimeString().slice(0,5);
-                    const blocked = unavail || isPast;
-                    return(
-                    <div key={t} onClick={()=>!blocked&&update({time:t})} style={{padding:'12px 0',borderRadius:12,textAlign:'center',cursor:blocked?'not-allowed':'pointer',fontSize:14,fontWeight:600,minHeight:44,display:'flex',alignItems:'center',justifyContent:'center',background:blocked?'#f5f5f5':sel?ACCENT:CARD,color:blocked?'#bbb':sel?'#fff':DARK,border:sel?`2px solid ${ACCENT}`:`1px solid ${blocked?'#eee':BORDER}`,opacity:blocked?.6:1}}>
-                      {fmtTime(t)}
-                    </div>
-                  )})}
-                </div>
-              </div>
-            )}
-            <div style={{display:'flex',gap:10,marginTop:20}}><Btn variant="ghost" onClick={()=>update({step:1})}><Icon name="back" size={14} color={MUTED}/> Back</Btn><Btn variant="primary" full disabled={!flow.date||!flow.time} onClick={()=>update({step:3})}>Continue</Btn></div>
-          </div>
-        )}
-        {step===3&&(
-          <div className="fade-up gb-booking-layout">
-            <div>
-              <h3 style={{fontFamily:'Fraunces,serif',fontSize:20,fontWeight:600,marginBottom:20}}>Confirm Booking</h3>
-              <div style={{background:CARD,borderRadius:20,overflow:'hidden',border:`1px solid ${BORDER}`,marginBottom:20}}>
-                <div style={{background:`linear-gradient(135deg,${ACCENT}10,${ROSE}10)`,padding:20}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}><Icon name="scissors" size={18} color={ACCENT}/><span style={{fontSize:11,fontWeight:600,color:ACCENT,textTransform:'uppercase',letterSpacing:1}}>Summary</span></div>
-                  <h4 style={{fontSize:18,fontWeight:700,fontFamily:'Fraunces,serif'}}>{flow.service?.name}</h4>
-                </div>
-                <div style={{padding:20}}>
-                  {[{label:'Location',value:flow.branch?.name,icon:'map'},{label:'Stylist',value:flow.staff?.name||'Any Available',icon:'user'},{label:'Date',value:flow.date?fmtDate(flow.date):'—',icon:'calendar'},{label:'Time',value:flow.time?fmtTime(flow.time):'—',icon:'clock'}].map(item=>(
-                    <div key={item.label} style={{display:'flex',alignItems:'center',padding:'10px 0',borderBottom:`1px solid ${BORDER}`}}><Icon name={item.icon} size={16} color={MUTED}/><span style={{fontSize:13,color:MUTED,marginLeft:10,width:70}}>{item.label}</span><span style={{fontSize:14,fontWeight:600,flex:1}}>{item.value}</span></div>
-                  ))}
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',paddingTop:16}}>
-                    <span style={{fontSize:14,color:MUTED}}>Total</span>
-                    <span style={{fontSize:24,fontWeight:700,fontFamily:'Fraunces,serif',color:ACCENT}}>{fmtK(flow.service?.price)}</span>
-                  </div>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',paddingTop:8,borderTop:`1px dashed ${BORDER}`,marginTop:12}}>
-                      <span style={{fontSize:14,fontWeight:600,color:DARK}}>Deposit (pay now)</span>
-                      <span style={{fontSize:20,fontWeight:700,fontFamily:'Fraunces,serif',color:'#2e7d32'}}>{fmtK(deposit)}</span>
-                    </div>
-                </div>
-              </div>
-              <div style={{background:CARD,borderRadius:16,border:`1px solid ${BORDER}`,padding:16,marginBottom:16}}>
-                  <div style={{fontSize:14,fontWeight:600,marginBottom:4,display:'flex',alignItems:'center',gap:6}}><Icon name="smartphone" size={16} color={DARK}/> Mobile Money Number</div>
-                  <div style={{fontSize:12,color:MUTED,marginBottom:10,lineHeight:1.5}}>Enter the number to pay from. You'll receive a USSD prompt to approve <strong>{fmtK(deposit)}</strong>.</div>
-                  <input value={flow.payerPhone||client?.phone||''} onChange={e=>update({payerPhone:e.target.value})} placeholder="e.g. 0971234567" style={{width:'100%',padding:'12px 14px',borderRadius:12,border:`1.5px solid ${BORDER}`,fontSize:15,background:BG,color:DARK,fontFamily:'inherit',letterSpacing:0.5}} />
-                  <div style={{display:'flex',gap:6,marginTop:8}}>
-                    {['MTN','Airtel','Zamtel'].map(n=><span key={n} style={{fontSize:10,fontWeight:600,color:MUTED,padding:'3px 8px',borderRadius:6,background:BG,border:`1px solid ${BORDER}`}}>{n}</span>)}
-                  </div>
-                </div>
-              <div style={{background:CARD,borderRadius:16,border:`1px solid ${BORDER}`,padding:16,marginBottom:16}}>
-                <div style={{fontSize:14,fontWeight:600,marginBottom:8}}>Special Requests</div>
-                <textarea value={flow.clientNotes||''} onChange={e=>update({clientNotes:e.target.value})} placeholder="E.g. shoulder-length braids..." rows={3} style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1.5px solid ${BORDER}`,fontSize:13,background:BG,color:DARK,resize:'vertical',fontFamily:'inherit',minHeight:80}}/>
-              </div>
-            </div>
-            <div>
-              <div style={{background:`linear-gradient(135deg,${GOLD}08,${ACCENT}08)`,borderRadius:16,border:`1px solid ${GOLD}20`,padding:16,marginBottom:16}}>
-                <div style={{display:'flex',alignItems:'center',gap:8}}><Icon name="star" size={18} color={GOLD}/><div><div style={{fontSize:14,fontWeight:600}}>You'll earn {Math.floor((flow.service?.price||0)/10)} LuminPoints</div><div style={{fontSize:12,color:MUTED}}>Points awarded when your appointment is completed</div></div></div>
-              </div>
-              <div style={{background:CARD,borderRadius:16,border:`1px solid ${BORDER}`,padding:16,marginBottom:16}}>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:flow.recurring?12:0}}>
-                  <div><div style={{fontSize:14,fontWeight:600}}>Recurring</div><div style={{fontSize:12,color:MUTED}}>Auto-book same time</div></div>
-                  <Toggle value={flow.recurring} onChange={()=>update({recurring:!flow.recurring,recurringType:flow.recurring?null:'weekly'})}/>
-                </div>
-                {flow.recurring&&(
-                  <div>
-                    <div style={{display:'flex',gap:8,marginBottom:10}}>
-                      {[['weekly','Weekly'],['biweekly','Bi-weekly'],['monthly','Monthly']].map(([val,label])=><button key={val} onClick={()=>update({recurringType:val})} style={{flex:1,padding:'8px 4px',borderRadius:10,border:`1.5px solid ${flow.recurringType===val?ACCENT:BORDER}`,background:flow.recurringType===val?ACCENT+'15':'transparent',color:flow.recurringType===val?ACCENT:MUTED,fontSize:12,fontWeight:600,cursor:'pointer',minHeight:36}}>{label}</button>)}
-                    </div>
-                    <label style={{fontSize:12,color:MUTED}}>Until: <input type="date" value={flow.recurringUntil||''} onChange={e=>update({recurringUntil:e.target.value})} min={flow.date} style={{padding:'6px 10px',borderRadius:8,border:`1px solid ${BORDER}`,fontSize:12,background:BG,color:DARK,marginLeft:6}}/></label>
-                  </div>
-                )}
-              </div>
-              <div style={{background:`${GOLD}08`,borderRadius:12,padding:12,marginBottom:16,border:`1px solid ${GOLD}20`}}>
-                <div style={{fontSize:12,fontWeight:600,color:GOLD,marginBottom:4}}>Cancellation Policy</div>
-                <div style={{fontSize:12,color:MUTED,lineHeight:1.5}}>Free cancellation up to {flow.branch?.cancellation_hours||2}h before. Late cancellations may incur a fee.</div>
-              </div>
-              <div style={{display:'flex',gap:10}}>
-                <Btn variant="secondary" onClick={()=>update({step:2})}><Icon name="back" size={14} color={MUTED}/> Back</Btn>
-                <Btn variant="primary" full disabled={!!paymentState||!(flow.payerPhone||client?.phone)} onClick={()=>createBooking(flow)} style={{borderRadius:14,fontSize:16,boxShadow:`0 4px 20px ${ACCENT}40`}}>
-                  Pay {fmtK(deposit)} & Book
-                </Btn>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-      {/* Payment Processing Overlay */}
-      {paymentState && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20,backdropFilter:'blur(4px)'}}>
-          <div style={{background:CARD,borderRadius:24,padding:32,maxWidth:380,width:'100%',textAlign:'center',boxShadow:'0 20px 60px rgba(0,0,0,0.2)'}}>
-            {paymentState.step==='failed'?(
-              <>
-                <div style={{width:64,height:64,borderRadius:32,background:'#fce8e8',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px',}}><Icon name="close" size={28} color="#c62828"/></div>
-                <h3 style={{fontSize:18,fontWeight:700,fontFamily:'Fraunces,serif',marginBottom:8}}>
-                  {paymentState.isDuplicate ? 'Payment Already Pending' : 'Payment Failed'}
-                </h3>
-                <p style={{fontSize:14,color:MUTED,lineHeight:1.6,marginBottom:20}}>{paymentState.message}</p>
-                {paymentState.isDuplicate ? (
-                  <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                    <Btn variant="primary" full onClick={()=>{setPaymentState(null)}}>Wait for Existing Payment</Btn>
-                    <Btn variant="secondary" full onClick={async()=>{
-                      if(paymentState.existingPaymentId){
-                        setPaymentState({step:'cancelling',message:'Cancelling previous payment...'});
-                        try{
-                          const sbUrl=supabase.supabaseUrl;
-                          const{data:{session}}=await supabase.auth.getSession();
-                          const apiKey=supabase.supabaseKey||'';
-                          await fetch(sbUrl+'/functions/v1/process-payment',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(session?.access_token||''),'apikey':apiKey},body:JSON.stringify({action:'cancel',payment_id:paymentState.existingPaymentId})});
-                        }catch(e){console.warn('Cancel error:',e)}
-                        setPaymentState(null);
-                      }else{setPaymentState(null)}
-                    }}>Cancel Previous & Retry</Btn>
-                    <Btn variant="ghost" full onClick={()=>setPaymentState(null)}>Go Back</Btn>
-                  </div>
-                ) : (
-                  <div style={{display:'flex',gap:10}}>
-                    <Btn variant="secondary" full onClick={()=>setPaymentState(null)}>Go Back</Btn>
-                    <Btn variant="primary" full onClick={()=>{setPaymentState(null);createBooking(flow)}}>Try Again</Btn>
-                  </div>
-                )}
-              </>
-            ):paymentState.step==='success'?(
-              <>
-                <div style={{width:64,height:64,borderRadius:32,background:'#e8f5e9',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px',}}><Icon name="check" size={28} color="#2e7d32"/></div>
-                <h3 style={{fontSize:18,fontWeight:700,fontFamily:'Fraunces,serif',marginBottom:8}}>Payment Received!</h3>
-                <p style={{fontSize:14,color:MUTED}}>Creating your booking...</p>
-              </>
-            ):paymentState.step==='cancelling'?(
-              <>
-                <div style={{width:64,height:64,borderRadius:32,background:`${ACCENT}15`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}>
-                  <div style={{width:32,height:32,border:`3px solid ${BORDER}`,borderTopColor:ACCENT,borderRadius:'50%',animation:'spin 1s linear infinite'}}/>
-                </div>
-                <h3 style={{fontSize:18,fontWeight:700,fontFamily:'Fraunces,serif',marginBottom:8}}>Cancelling Payment...</h3>
-                <p style={{fontSize:14,color:MUTED,lineHeight:1.6}}>Please wait while we cancel the payment.</p>
-              </>
-            ):(
-              <>
-                <div style={{width:64,height:64,borderRadius:32,background:`${ACCENT}15`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}>
-                  <div style={{width:32,height:32,border:`3px solid ${BORDER}`,borderTopColor:ACCENT,borderRadius:'50%',animation:'spin 1s linear infinite'}}/>
-                </div>
-                <h3 style={{fontSize:18,fontWeight:700,fontFamily:'Fraunces,serif',marginBottom:8}}>
-                  {paymentState.step==='initiating'?'Initiating Payment...':'Waiting for Approval'}
-                </h3>
-                <p style={{fontSize:14,color:MUTED,lineHeight:1.6,marginBottom:6}}>{paymentState.message}</p>
-                {paymentState.step==='waiting'&&(
-                  <div style={{background:BG,borderRadius:12,padding:14,marginTop:12,border:`1px solid ${BORDER}`}}>
-                    <div style={{fontSize:12,fontWeight:600,color:DARK,marginBottom:4,display:'flex',alignItems:'center',gap:4}}><Icon name="smartphone" size={14} color={DARK}/> Check your phone</div>
-                    <div style={{fontSize:11,color:MUTED,lineHeight:1.5}}>A USSD prompt has been sent. Enter your PIN to approve the {fmtK(deposit)} deposit payment.</div>
-                  </div>
-                )}
-                <button onClick={cancelPayment} disabled={paymentState.step==='initiating'} style={{marginTop:16,background:'none',border:`1.5px solid #c6282840`,color:'#c62828',fontSize:13,cursor:paymentState.step==='initiating'?'not-allowed':'pointer',padding:'10px 24px',borderRadius:12,fontWeight:600,opacity:paymentState.step==='initiating'?0.4:1,transition:'all .15s'}}>Cancel Payment</button>
-              </>
-            )}
+          <div>
+            <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Closes</label></div>
+            <input type="time" value={form.close_time} onChange={e => setForm(f => ({ ...f, close_time: e.target.value }))} style={is} />
           </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-function MyBookingsPage({upcoming,past,getService,getStaffMember,getBranch,cancelBooking,rescheduleBooking,navigate,bp,onReview,reviewedIds}) {
-  const [tab,setTab]=useState('upcoming');
-  const [cancelTarget,setCancelTarget]=useState(null);
-  const [showCount,setShowCount]=useState(10);
-  const pad=bp==='desktop'?'32px':'20px';
-  const displayList = tab==='upcoming' ? upcoming : past.slice(0,showCount);
-  const hasMore = tab==='past' && past.length > showCount;
-
-  const BookingCard = ({bk}) => {
-    const svc=getService(bk.service_id);const stf=getStaffMember(bk.staff_id);const br=getBranch(bk.branch_id);
-    const st=STATUS_MAP[bk.status]||STATUS_MAP.pending;
-    const canReview=bk.status==='completed'&&!reviewedIds?.has(bk.id);
-    return(
-      <div style={{background:CARD,borderRadius:18,overflow:'hidden',border:`1px solid ${BORDER}`}}>
-        <div style={{display:'flex',gap:14,padding:16}}>
-          <div style={{width:52,height:52,borderRadius:14,background:`linear-gradient(135deg,${ACCENT}20,${ROSE}20)`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><CatIcon cat={svc?.category} size={22}/></div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'start',marginBottom:4,gap:8}}><h4 style={{fontSize:15,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{svc?.name||'Service'}</h4><Badge bg={st.bg} fg={st.fg}>{st.label}</Badge></div>
-            <div style={{fontSize:13,color:MUTED,marginBottom:2}}>{br?.name||'Studio'}</div>
-            <div style={{display:'flex',alignItems:'center',gap:12,fontSize:12,color:MUTED,flexWrap:'wrap'}}>
-              <span style={{display:'flex',alignItems:'center',gap:3}}><Icon name="calendar" size={12} color={MUTED}/>{fmtDate(bk.booking_date)}</span>
-              <span style={{display:'flex',alignItems:'center',gap:3}}><Icon name="clock" size={12} color={MUTED}/>{fmtTime(bk.booking_time)}</span>
-            </div>
-            {stf&&<div style={{fontSize:12,color:MUTED,marginTop:3}}>with {stf.name}</div>}
-          </div>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 4 }}><label style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Booking Slot Interval</label></div>
+          <select value={form.slot_interval} onChange={e => setForm(f => ({ ...f, slot_interval: parseInt(e.target.value) }))} style={is}>
+            <option value={15}>15 minutes</option><option value={20}>20 minutes</option><option value={30}>30 minutes</option><option value={45}>45 minutes</option><option value={60}>60 minutes</option>
+          </select>
         </div>
-        <div style={{borderTop:`1px solid ${BORDER}`,padding:'10px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
-          <span style={{fontSize:15,fontWeight:700,color:ACCENT}}>{fmtK(bk.total_amount)}</span>
-          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-            {(bk.status==='confirmed'||bk.status==='pending')&&<><Btn small variant="secondary" onClick={()=>rescheduleBooking(bk)}>Reschedule</Btn><Btn small variant="outline" onClick={()=>setCancelTarget(bk)} style={{color:'#c62828',borderColor:'#c6282840'}}>Cancel</Btn></>}
-            {bk.status==='completed'&&<Btn small variant="secondary" onClick={()=>navigate('salon',{branch:getBranch(bk.branch_id)})}>Rebook</Btn>}
-            {canReview&&<Btn small variant="primary" onClick={()=>onReview(bk)}><Icon name="star" size={14} color="#fff"/> Review</Btn>}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
-  return(
-    <div className="fade-up">
-      <div style={{padding:`20px ${pad} 0`,background:CARD,borderBottom:`1px solid ${BORDER}`}}>
-        <h1 style={{fontFamily:'Fraunces,serif',fontSize:24,fontWeight:700,marginBottom:16}}>My Bookings</h1>
-        <div style={{display:'flex',gap:4,maxWidth:300}}>
-          {['upcoming','past'].map(t=><button key={t} onClick={()=>{setTab(t);setShowCount(10)}} style={{flex:1,padding:'12px 0',background:'none',border:'none',borderBottom:tab===t?`2px solid ${ACCENT}`:'2px solid transparent',color:tab===t?ACCENT:MUTED,fontSize:14,fontWeight:600,cursor:'pointer',textTransform:'capitalize',minHeight:44}}>
-            {t} {t==='upcoming'&&upcoming.length>0&&<span style={{background:ACCENT,color:'#fff',borderRadius:50,padding:'2px 7px',fontSize:11,marginLeft:4}}>{upcoming.length}</span>}
-          </button>)}
-        </div>
-      </div>
-      <div style={{padding:`20px ${pad} 32px`}}>
-        <div style={{display:'grid',gap:12,gridTemplateColumns:bp==='desktop'?'repeat(2,1fr)':'1fr'}}>
-          {displayList.map(b=><BookingCard key={b.id} bk={b}/>)}
-        </div>
-        {hasMore&&<div style={{textAlign:'center',marginTop:16}}><button onClick={()=>setShowCount(c=>c+10)} style={{padding:'10px 28px',borderRadius:12,border:`1.5px solid ${BORDER}`,background:CARD,color:ACCENT,fontSize:13,fontWeight:600,cursor:'pointer',minHeight:44}}>Load more ({past.length-showCount} remaining)</button></div>}
-        {!displayList.length&&<EmptyState icon={tab==='upcoming'?'calendar':'clipboard'} title={tab==='upcoming'?'No upcoming bookings':'No past bookings'} sub={tab==='upcoming'?'Book your next appointment!':'History will show here'}/>}
-      </div>
-      <BottomSheet open={!!cancelTarget} onClose={()=>setCancelTarget(null)} title="Cancel Booking">
-        {cancelTarget&&(()=>{
-          const br=getBranch(cancelTarget.branch_id);const cancelHours=br?.cancellation_hours??2;
-          const bookingDT=new Date(`${cancelTarget.booking_date}T${cancelTarget.booking_time||'00:00'}`);
-          const hoursUntil=Math.max(0,(bookingDT-new Date())/3600000);
-          const isLate=hoursUntil<cancelHours&&hoursUntil>0;
-          const feePercent=br?.cancellation_fee_percent||0;
-          const fee=isLate&&feePercent>0?Math.round((cancelTarget.total_amount||0)*feePercent/100):0;
-          return(<>
-            <p style={{fontSize:14,color:MUTED,lineHeight:1.6,marginBottom:12}}>Cancel <strong>{getService(cancelTarget.service_id)?.name}</strong> on {fmtDate(cancelTarget.booking_date)} at {fmtTime(cancelTarget.booking_time)}?</p>
-            {isLate&&feePercent>0&&<div style={{background:'#fff3e0',borderRadius:12,padding:12,marginBottom:16,border:'1px solid #ffe0b2'}}><div style={{fontSize:13,fontWeight:700,color:'#e65100',marginBottom:4,display:'flex',alignItems:'center',gap:6}}><XCircle size={16} color="#e65100"/> Late Cancellation</div><div style={{fontSize:12,color:'#bf360c'}}>Fee: {fmtK(fee)} ({feePercent}%)</div></div>}
-            <div style={{display:'flex',gap:10}}><Btn full variant="secondary" onClick={()=>setCancelTarget(null)}>Keep</Btn><Btn full variant="primary" onClick={()=>{cancelBooking(cancelTarget.id);setCancelTarget(null)}} style={{background:'#c62828'}}>{fee>0?`Cancel ({fmtK(fee)})`:'Yes, Cancel'}</Btn></div>
-          </>);
-        })()}
-      </BottomSheet>
-    </div>
-  );
-}
-
-function SuggestionBox({source,authorName,authorEmail,branchId,showToast}) {
-  const [open,setOpen]=useState(false);
-  const [msg,setMsg]=useState('');
-  const [cat,setCat]=useState('general');
-  const [sending,setSending]=useState(false);
-  const [sent,setSent]=useState(false);
-  const cats=['general','feature request','bug report','complaint','compliment'];
-
-  const submit=async()=>{
-    if(!msg.trim())return;
-    setSending(true);
-    const{error}=await supabase.from('suggestions').insert({source,author_name:authorName||null,author_email:authorEmail||null,branch_id:branchId||null,category:cat,message:msg.trim()});
-    setSending(false);
-    if(error){showToast('Couldn\'t send your suggestion. Please try again.','error');return}
-    setSent(true);setMsg('');
-    setTimeout(()=>{setSent(false);setOpen(false)},2500);
-    showToast('Thanks for your feedback!');
-  };
-
-  if(sent) return(
-    <div style={{background:`linear-gradient(135deg,${source==='client'?ACCENT:typeof C!=='undefined'?C.accent:ACCENT}12,${source==='client'?GOLD:typeof C!=='undefined'?C.gold:GOLD}12)`,borderRadius:18,padding:20,marginBottom:20,textAlign:'center',border:`1px solid ${source==='client'?ACCENT:typeof C!=='undefined'?C.accent:ACCENT}20`}}>
-      <div style={{marginBottom:8}}><Icon name="check" size={28} color="#2e7d32"/></div>
-      <div style={{fontSize:15,fontWeight:700}}>Thank you!</div>
-      <div style={{fontSize:13,color:source==='client'?MUTED:typeof C!=='undefined'?C.textMuted:MUTED,marginTop:4}}>Your suggestion has been submitted</div>
-    </div>
-  );
-
-  return(
-    <div style={{marginBottom:20}}>
-      {!open?(
-        <button onClick={()=>setOpen(true)} style={{width:'100%',background:source==='client'?CARD:'#fff',borderRadius:16,padding:16,border:`1px solid ${source==='client'?BORDER:typeof C!=='undefined'?C.border:'#e8e0d8'}`,cursor:'pointer',display:'flex',gap:12,alignItems:'center',textAlign:'left'}}>
-          <div style={{width:40,height:40,borderRadius:12,background:`linear-gradient(135deg,${source==='client'?ACCENT:typeof C!=='undefined'?C.accent:ACCENT}20,${source==='client'?GOLD:typeof C!=='undefined'?C.gold:GOLD}20)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}><Icon name="lightbulb" size={18} color={ACCENT}/></div>
-          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700,color:source==='client'?DARK:typeof C!=='undefined'?C.text:'#1a1a2e'}}>Got a Suggestion?</div><div style={{fontSize:12,color:source==='client'?MUTED:typeof C!=='undefined'?C.textMuted:'#8a7e74',marginTop:2}}>Help us improve LuminBook</div></div>
-          <Icon name="chevR" size={16} color={source==='client'?MUTED:'#8a7e74'}/>
+        <button onClick={handleCreate} disabled={submitting} style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: C.accent, color: '#fff', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', marginBottom: 12, opacity: submitting ? 0.6 : 1, minHeight: 48 }}>
+          {submitting ? 'Creating…' : 'Create Studio'}
         </button>
-      ):(
-        <div style={{background:source==='client'?CARD:'#fff',borderRadius:18,padding:20,border:`1px solid ${source==='client'?BORDER:typeof C!=='undefined'?C.border:'#e8e0d8'}`}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-            <h3 style={{fontSize:16,fontWeight:700}}>Suggestion Box</h3>
-            <button onClick={()=>setOpen(false)} className="icon-btn" style={{background:'none',border:'none',cursor:'pointer',padding:4,borderRadius:8}}><Icon name="close" size={18} color={source==='client'?MUTED:'#8a7e74'}/></button>
-          </div>
-          <div style={{marginBottom:12}}>
-            <label style={{fontSize:12,fontWeight:600,color:source==='client'?MUTED:typeof C!=='undefined'?C.textMuted:'#8a7e74',display:'block',marginBottom:6}}>Category</label>
-            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-              {cats.map(c=><button key={c} onClick={()=>setCat(c)} style={{padding:'6px 12px',borderRadius:20,border:`1.5px solid ${cat===c?(source==='client'?ACCENT:typeof C!=='undefined'?C.accent:ACCENT):(source==='client'?BORDER:typeof C!=='undefined'?C.border:'#e8e0d8')}`,background:cat===c?`${source==='client'?ACCENT:typeof C!=='undefined'?C.accent:ACCENT}12`:'transparent',color:cat===c?(source==='client'?ACCENT:typeof C!=='undefined'?C.accent:ACCENT):(source==='client'?DARK:typeof C!=='undefined'?C.text:'#1a1a2e'),fontSize:12,fontWeight:600,cursor:'pointer',textTransform:'capitalize'}}>{c}</button>)}
-            </div>
-          </div>
-          <textarea value={msg} onChange={e=>setMsg(e.target.value)} placeholder="Tell us what you'd like to see improved, added, or fixed..." rows={4} style={{width:'100%',padding:'12px 14px',borderRadius:12,border:`1.5px solid ${source==='client'?BORDER:typeof C!=='undefined'?C.border:'#e8e0d8'}`,fontSize:14,background:source==='client'?BG:'#faf7f5',color:source==='client'?DARK:typeof C!=='undefined'?C.text:'#1a1a2e',marginBottom:12,resize:'vertical',minHeight:100,fontFamily:'DM Sans,sans-serif'}}/>
-          <div style={{display:'flex',gap:10}}>
-            <button onClick={()=>setOpen(false)} style={{flex:1,padding:'12px',borderRadius:12,border:`1px solid ${source==='client'?BORDER:typeof C!=='undefined'?C.border:'#e8e0d8'}`,background:'transparent',fontSize:14,fontWeight:600,cursor:'pointer',color:source==='client'?DARK:typeof C!=='undefined'?C.text:'#1a1a2e'}}>Cancel</button>
-            <button onClick={submit} disabled={sending||!msg.trim()} style={{flex:1,padding:'12px',borderRadius:12,border:'none',background:msg.trim()?(source==='client'?ACCENT:typeof C!=='undefined'?C.accent:ACCENT):(source==='client'?BORDER:typeof C!=='undefined'?C.border:'#e8e0d8'),color:'#fff',fontSize:14,fontWeight:600,cursor:msg.trim()?'pointer':'default',opacity:sending?.6:1}}>{sending?'Sending...':'Submit'}</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
-function ProfilePage({client,clientBookings,branches,favorites,getBranch,navigate,showToast,authUser,handleLogout,bp,onReview,reviewedIds,getService,refreshClient}) {
-  const totalSpent=clientBookings.filter(b=>b.status==='completed').reduce((s,b)=>s+(b.total_amount||0),0);
-  const points=client.lumin_points||0;
-  const favBranches=branches.filter(b=>favorites.includes(b.id));
-  const [editing,setEditing]=useState(false);
-  const [editForm,setEditForm]=useState({name:client.name||'',phone:client.phone||'',email:client.email||'',area:client.area||''});
-  const [customArea,setCustomArea]=useState('');
-  const [saving,setSaving]=useState(false);
-  const pad=bp==='desktop'?'32px':'20px';
-
-  const LUSAKA_AREAS=['Kabulonga','Woodlands','Roma','Chelstone','Ibex Hill','Sunningdale','Makeni','Kalingalinga','Emmasdale','Kabwata','Chilenje','Matero','Northmead','Olympia','Longacres','Avondale','PHI','Chainda','Garden Compound','Mtendere','Bauleni','Lilayi','Meanwood','Silverest','Twin Palm','Foxdale','Mass Media','Other'];
-
-  useEffect(()=>{setEditForm({name:client.name||'',phone:client.phone||'',email:client.email||'',area:client.area||''})},[client]);
-
-  const pendingReviews=clientBookings.filter(b=>b.status==='completed'&&!reviewedIds?.has(b.id));
-
-  const saveProfile=async()=>{
-    if(editForm.phone&&!isValidZambianPhone(editForm.phone)){showToast('Please enter a valid Zambian phone number (e.g. 0971234567)','error');return}
-    if(editForm.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email)){showToast('Please enter a valid email address','error');return}
-    setSaving(true);
-    const area=editForm.area==='Other'?customArea:editForm.area;
-    const{error}=await supabase.from('clients').update({name:editForm.name,phone:editForm.phone,email:editForm.email,area,updated_at:new Date().toISOString()}).eq('id',client.id);
-    setSaving(false);
-    if(error){showToast('Couldn\'t update your profile. Please try again.','error');return}
-    showToast('Profile updated!');setEditing(false);if(refreshClient)refreshClient();
-  };
-
-  const StarRow=({value,onChange,label})=>(<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}><span style={{fontSize:13,color:MUTED}}>{label}</span><div style={{display:'flex',gap:4}}>{[1,2,3,4,5].map(s=><span key={s} onClick={()=>onChange(s)} className="star-btn" style={{color:s<=value?'#F59E0B':BORDER,minWidth:28,textAlign:'center'}}><Star size={20} fill={s<=value?'#F59E0B':'none'} stroke={s<=value?'#F59E0B':'#ccc'} strokeWidth={1.5}/></span>)}</div></div>);
-  const iStyle={width:'100%',padding:'12px 16px',borderRadius:12,border:`1.5px solid ${BORDER}`,fontSize:14,background:BG,color:DARK,marginBottom:10,minHeight:44};
-
-  return(
-    <div className="fade-up">
-      <div style={{padding:`20px ${pad} 32px`}}>
-        <div className="gb-profile-layout">
-          <div>
-            <div style={{background:`linear-gradient(135deg,${DARK},#2a1f23)`,padding:'28px 20px',borderRadius:20,textAlign:'center',marginBottom:20}}>
-              <div style={{width:72,height:72,borderRadius:36,background:`linear-gradient(135deg,${ACCENT},${ROSE})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,fontWeight:700,color:'#fff',margin:'0 auto 12px',border:'3px solid rgba(255,255,255,.2)'}}>{client.name?.[0]||'G'}</div>
-              <h2 style={{fontSize:20,fontWeight:700,color:'#fff',fontFamily:'Fraunces,serif'}}>{client.name||'Guest'}</h2>
-              {client.email&&<p style={{fontSize:13,color:'rgba(255,255,255,.6)',marginTop:4}}>{client.email}</p>}
-              {client.phone&&<p style={{fontSize:12,color:'rgba(255,255,255,.5)',marginTop:2}}>{client.phone}</p>}
-              {client.area&&<p style={{fontSize:12,color:'rgba(255,255,255,.5)',marginTop:2,display:'flex',alignItems:'center',gap:4}}><Icon name="map" size={12} color="rgba(255,255,255,.5)"/>{client.area}</p>}
-              <button onClick={()=>setEditing(true)} style={{marginTop:10,background:'rgba(255,255,255,.15)',border:'none',color:'#fff',padding:'6px 16px',borderRadius:20,fontSize:12,fontWeight:600,cursor:'pointer',minHeight:32}}>Edit Profile</button>
-            </div>
-            <div className="gb-grid-stats" style={{marginBottom:20}}>
-              {[[clientBookings.length,'Bookings',ACCENT],[fmtK(totalSpent),'Spent',GOLD],[points,'Points',ROSE]].map(([v,l,c])=>(
-                <div key={l} style={{background:CARD,borderRadius:16,padding:14,border:`1px solid ${BORDER}`,textAlign:'center'}}><div style={{fontSize:22,fontWeight:700,fontFamily:'Fraunces,serif',color:c}}>{v}</div><div style={{fontSize:11,color:MUTED}}>{l}</div></div>
-              ))}
-            </div>
-            <div style={{background:`linear-gradient(135deg,${GOLD},${ACCENT})`,borderRadius:18,padding:20,marginBottom:20,color:'#fff',position:'relative',overflow:'hidden'}}>
-              <div style={{position:'absolute',top:-20,right:-20,width:80,height:80,borderRadius:40,background:'rgba(255,255,255,.1)'}}/>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}><Icon name="gift" size={20} color="#fff"/><span style={{fontSize:14,fontWeight:600}}>LuminPoints</span></div>
-              <div style={{fontSize:28,fontWeight:700,fontFamily:'Fraunces,serif'}}>{points}</div>
-              <p style={{fontSize:12,opacity:.8,marginTop:4}}>Earn with every booking, redeem for discounts!</p>
-            </div>
-            {client.referral_code&&(
-              <div style={{background:`linear-gradient(135deg,${ROSE}15,${ACCENT}15)`,borderRadius:18,padding:18,marginBottom:20,border:`1px solid ${ROSE}25`}}>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}><Icon name="gift" size={20} color={ACCENT}/><span style={{fontSize:15,fontWeight:700}}>Refer a Friend</span></div>
-                <p style={{fontSize:13,color:MUTED,lineHeight:1.5,marginBottom:12}}>Share your code — earn 50 pts when they book!</p>
-                <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                  <div style={{flex:1,background:CARD,borderRadius:12,padding:'10px 14px',fontFamily:'monospace',fontSize:18,fontWeight:700,color:ACCENT,textAlign:'center',letterSpacing:2,border:`1px solid ${BORDER}`}}>{client.referral_code}</div>
-                  <button onClick={()=>{navigator.clipboard?.writeText(client.referral_code);showToast('Copied!')}} style={{padding:'10px 16px',borderRadius:12,background:ACCENT,border:'none',color:'#fff',fontWeight:600,fontSize:13,cursor:'pointer',minHeight:44}}>Copy</button>
-                </div>
-              </div>
-            )}
-          </div>
-          <div>
-            {editing&&(
-              <div style={{background:CARD,borderRadius:18,padding:20,border:`1px solid ${BORDER}`,marginBottom:20}}>
-                <h3 style={{fontSize:16,fontWeight:700,marginBottom:14}}>Edit Profile</h3>
-                <label style={{fontSize:12,fontWeight:600,color:MUTED,display:'block',marginBottom:4}}>Full Name</label>
-                <input value={editForm.name} onChange={e=>setEditForm(p=>({...p,name:e.target.value}))} placeholder="Full name" style={iStyle}/>
-                <label style={{fontSize:12,fontWeight:600,color:MUTED,display:'block',marginBottom:4}}>Phone Number</label>
-                <input value={editForm.phone} onChange={e=>setEditForm(p=>({...p,phone:e.target.value}))} placeholder="e.g. 0971234567" style={iStyle}/>
-                <label style={{fontSize:12,fontWeight:600,color:MUTED,display:'block',marginBottom:4}}>Email Address</label>
-                <input value={editForm.email} onChange={e=>setEditForm(p=>({...p,email:e.target.value}))} placeholder="Email" type="email" style={iStyle}/>
-                <label style={{fontSize:12,fontWeight:600,color:MUTED,display:'block',marginBottom:4}}>Area of Residence</label>
-                <select value={editForm.area} onChange={e=>setEditForm(p=>({...p,area:e.target.value}))} style={{...iStyle,appearance:'auto'}}>
-                  <option value="">Select area...</option>
-                  {LUSAKA_AREAS.map(a=><option key={a} value={a}>{a}</option>)}
-                </select>
-                {editForm.area==='Other'&&(
-                  <input value={customArea} onChange={e=>setCustomArea(e.target.value)} placeholder="Type your area..." style={iStyle}/>
-                )}
-                <div style={{display:'flex',gap:10,marginTop:4}}><Btn full variant="secondary" onClick={()=>setEditing(false)}>Cancel</Btn><Btn full variant="primary" disabled={saving} onClick={saveProfile}>{saving?'Saving...':'Save'}</Btn></div>
-              </div>
-            )}
-            {pendingReviews.length>0&&(
-              <div style={{marginBottom:20}}>
-                <h3 style={{fontSize:16,fontWeight:700,marginBottom:12}}>Leave a Review</h3>
-                {pendingReviews.slice(0,3).map(b=>{const br=getBranch(b.branch_id);const svc=getService?.(b.service_id);return(
-                  <div key={b.id} onClick={()=>onReview(b)} style={{background:CARD,borderRadius:14,padding:14,marginBottom:8,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',gap:12,alignItems:'center',minHeight:60}}>
-                    <div style={{width:40,height:40,borderRadius:10,background:`linear-gradient(135deg,${GOLD}30,${ACCENT}30)`,display:'flex',alignItems:'center',justifyContent:'center',}}><Icon name="star" size={16} color={GOLD}/></div>
-                    <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{svc?.name||'Service'}</div><div style={{fontSize:12,color:MUTED}}>{br?.name} · {b.booking_date}</div></div>
-                    <Icon name="chevR" size={16} color={MUTED}/>
-                  </div>
-                )})}
-              </div>
-            )}
-            {favBranches.length>0&&(
-              <div style={{marginBottom:20}}>
-                <h3 style={{fontSize:16,fontWeight:700,marginBottom:12}}>Favorites</h3>
-                {favBranches.map(b=>(
-                  <div key={b.id} onClick={()=>navigate('salon',{branch:b})} style={{background:CARD,borderRadius:14,padding:14,marginBottom:8,border:`1px solid ${BORDER}`,cursor:'pointer',display:'flex',gap:12,alignItems:'center',minHeight:60}}>
-                    <div style={{width:40,height:40,borderRadius:10,background:`linear-gradient(135deg,${ACCENT}30,${ROSE}30)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>✂</div>
-                    <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{b.name}</div><div style={{fontSize:12,color:MUTED}}>{b.location||'Lusaka'}</div></div>
-                    <Icon name="chevR" size={16} color={MUTED}/>
-                  </div>
-                ))}
-              </div>
-            )}
-            <SuggestionBox source="client" authorName={client.name} authorEmail={client.email} showToast={showToast}/>
-            {bp!=='desktop'&&<Btn full variant="secondary" onClick={handleLogout} style={{borderRadius:14,marginBottom:20,color:'#c62828'}}>Sign Out</Btn>}
-          </div>
-        </div>
+        <button onClick={onLogout} style={{ width: '100%', padding: '10px', background: 'none', border: 'none', color: C.textMuted, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans' }}>Sign out</button>
       </div>
     </div>
-  );
+  )
 }
 
-export default function LuminBookClient() {
-  const bp = useBreakpoint();
-  const [authUser,setAuthUser] = useState(null);
-  const [authChecked,setAuthChecked] = useState(false);
-  const [page,setPage] = useState('home');
-  const [branches,setBranches] = useState([]);
-  const [services,setServices] = useState([]);
-  const [staff,setStaff] = useState([]);
-  const [reviews,setReviews] = useState([]);
-  const [bookings,setBookings] = useState([]);
-  const [loading,setLoading] = useState(true);
-  const fetchDebounceRef = useRef(null);
-  const catalogLoaded = useRef(false);
-  const [toast,setToast] = useState(null);
-  const [selectedBranch,setSelectedBranch] = useState(null);
-  const [bookingFlow,setBookingFlow] = useState(null);
-  const [paymentState,setPaymentState] = useState(null); // null | {step:'initiating'|'waiting'|'verifying'|'success'|'failed'|'cancelling', message, paymentId}
-  const isProcessingPayment = useRef(false);
-  const paymentPollAbort = useRef(false);
-  const deepLinkHandled = useRef(false);
-  const initialPath = useRef(window.location.pathname.replace(/^\/+|\/+$/g,'').toLowerCase());
-  const [searchQuery,setSearchQuery] = useState('');
-  const [selectedCategory,setSelectedCategory] = useState('All');
-  const [client,setClient] = useState({id:null,name:'Guest',phone:'',email:''});
-  const [navHistory,setNavHistory] = useState([]);
-  const [favorites,setFavorites] = useState(() => { try { return JSON.parse(localStorage.getItem('lb_favorites')) || []; } catch { return []; } });
-  const [notifications,setNotifications] = useState(() => { try { return JSON.parse(localStorage.getItem('lb_notifications')) || []; } catch { return []; } });
-  const [showNotifs,setShowNotifs] = useState(false);
-  const [reviewModal,setReviewModal] = useState(null);
-  const [reviewForm,setReviewForm] = useState({rating:5,text:''});
-  const [reviewSubmitting,setReviewSubmitting] = useState(false);
-  const [reviewedIds,setReviewedIds] = useState(new Set());
-  const [serviceCompare,setServiceCompare] = useState(null);
+export default function App() {
+  // ── AUTH STATE ──
+  const bp = useBreakpoint()
+  const [authUser, setAuthUser] = useState(null)
+  const [authChecked, setAuthChecked] = useState(false)
 
-  const [showResetPassword, setShowResetPassword] = useState(false);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({data:{session}}) => {setAuthUser(session?.user||null);setAuthChecked(true)});
-    const {data:{subscription}} = supabase.auth.onAuthStateChange((event,session) => {
-      setAuthUser(session?.user||null);
-      if(event==='PASSWORD_RECOVERY') setShowResetPassword(true);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Persist favorites & notifications to localStorage
-  useEffect(() => { try { localStorage.setItem('lb_favorites', JSON.stringify(favorites)); } catch {} }, [favorites]);
-  useEffect(() => { try { localStorage.setItem('lb_notifications', JSON.stringify(notifications)); } catch {} }, [notifications]);
+  const [page, setPage] = useState('dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [branchId, setBranchId] = useState(null)
+  const [branches, setBranches] = useState([])
+  const [ownedBranches, setOwnedBranches] = useState([])
+  const [needsOnboarding, setNeedsOnboarding] = useState(false)
+  const [branch, setBranch] = useState(null)
+  const [bookings, setBookings] = useState([])
+  const [staff, setStaff] = useState([])
+  const [services, setServices] = useState([])
+  const [serviceAddons, setServiceAddons] = useState([])
+  const [clients, setClients] = useState([])
+  const [reviews, setReviews] = useState([])
+  const [blockedTimes, setBlockedTimes] = useState([])
+  const [waitlist, setWaitlist] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [modal, setModal] = useState(null)
+  const [toast, setToast] = useState(null)
 
   // Offline detection
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false)
   useEffect(() => {
-    const goOff = () => setIsOffline(true);
-    const goOn = () => setIsOffline(false);
-    window.addEventListener('offline', goOff);
-    window.addEventListener('online', goOn);
-    return () => { window.removeEventListener('offline', goOff); window.removeEventListener('online', goOn); };
-  }, []);
+    const goOff = () => setIsOffline(true)
+    const goOn = () => setIsOffline(false)
+    window.addEventListener('offline', goOff)
+    window.addEventListener('online', goOn)
+    return () => { window.removeEventListener('offline', goOff); window.removeEventListener('online', goOn) }
+  }, [])
+
+  const showToast = useCallback((msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }, [])
+
+  const [showResetPassword, setShowResetPassword] = useState(false)
+
+  // ── AUTH CHECK ──
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthUser(session?.user || null)
+      setAuthChecked(true)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setAuthUser(session?.user || null)
+      if (event === 'PASSWORD_RECOVERY') setShowResetPassword(true)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // ── FIND OWNED BRANCHES ──
+  useEffect(() => {
+    if (!authChecked) return
+    if (authUser) {
+      supabase.from('branches').select('id, name, owner_email, is_active, approval_status').then(({ data }) => {
+        const userEmail = (authUser.email || '').toLowerCase()
+        const owned = (data || []).filter(b => (b.owner_email || '').toLowerCase() === userEmail)
+        setOwnedBranches(owned)
+        if (owned.length > 0) {
+          setBranchId(owned[0].id)
+          setNeedsOnboarding(false)
+        } else {
+          setNeedsOnboarding(true)
+        }
+      })
+    }
+  }, [authChecked, authUser])
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setAuthUser(null);setClient({id:null,name:'Guest',phone:'',email:''});setBookings([]);setReviewedIds(new Set());setPage('home');
-  };
+    await supabase.auth.signOut()
+    setAuthUser(null)
+    setBranchId(null)
+    setOwnedBranches([])
+    setNeedsOnboarding(false)
+    setPage('dashboard')
+  }
 
-  // ---- CATALOG: branches, services, staff — loaded ONCE ----
-  const fetchCatalog = async () => {
-    const [b,sv,st] = await Promise.all([
-      supabase.from('branches').select('*').eq('is_active',true).eq('approval_status','approved'),
-      supabase.from('services').select('*').eq('is_active',true).order('category, name'),
-      supabase.from('staff').select('*').eq('is_active',true).order('name'),
-    ]);
-    setBranches(b.data||[]);setServices(sv.data||[]);setStaff(st.data||[]);
-    catalogLoaded.current=true;
-  };
+  const fetchAll = useCallback(async () => {
+    if (!branchId) return
+    setLoading(true)
+    try {
+      // Calculate date 6 months ago for booking limit
+      const sixMonthsAgo = new Date()
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+      const sixMonthsAgoStr = sixMonthsAgo.toISOString().slice(0, 10)
 
-  // ---- MY DATA: client record + client's bookings + reviewed IDs ----
-  const fetchMyData = async (user) => {
-    const u = user || authUser;
-    if(!u) return;
+      const [branchRes, bookingRes, staffRes, serviceRes, reviewRes, branchesRes, blockedRes, waitlistRes, addonsRes] = await Promise.all([
+        supabase.from('branches').select('*').eq('id', branchId).single(),
+        supabase.from('bookings').select('*').eq('branch_id', branchId).gte('booking_date', sixMonthsAgoStr).order('booking_date', { ascending: false }).limit(500),
+        supabase.from('staff').select('*').eq('branch_id', branchId).order('name'),
+        supabase.from('services').select('*').eq('branch_id', branchId).order('category, name'),
+        supabase.from('reviews').select('*').eq('branch_id', branchId).order('created_at', { ascending: false }),
+        supabase.from('branches').select('id, name'),
+        supabase.from('staff_blocked_times').select('*').eq('branch_id', branchId).gte('block_date', todayStr()).order('block_date'),
+        supabase.from('waitlist').select('*').eq('branch_id', branchId).eq('status', 'waiting').order('preferred_date'),
+        supabase.from('service_addons').select('*').eq('branch_id', branchId),
+      ])
+      const bkData = bookingRes.data || []
+      setBranch(branchRes.data); setBookings(bkData); setStaff(staffRes.data || [])
+      setServices(serviceRes.data || []); setReviews(reviewRes.data || [])
+      setBranches(branchesRes.data || [])
+      setBlockedTimes(blockedRes.data || []); setWaitlist(waitlistRes.data || [])
+      setServiceAddons(addonsRes.data || [])
 
-    // Find client record: by auth_user_id first, then by email
-    let myClient = null;
-    const{data:linked}=await supabase.from('clients').select('*').eq('auth_user_id',u.id).single();
-    if(linked) myClient=linked;
-    else {
-      const{data:byEmail}=await supabase.from('clients').select('*').eq('email',u.email.toLowerCase()).limit(1).single();
-      if(byEmail){
-        const{error:linkErr}=await supabase.from('clients').update({auth_user_id:u.id,updated_at:new Date().toISOString()}).eq('id',byEmail.id);
-        if(!linkErr) myClient={...byEmail,auth_user_id:u.id};
-        else myClient=byEmail;
-      }
-      else {
-        // FALLBACK: No client record exists — create one now
-        // This catches cases where the DB trigger didn't fire or the signup insert failed
-        const code=(((u.user_metadata?.name||u.email).replace(/[^a-zA-Z]/g,'')).slice(0,3)+u.id.slice(0,4)).toUpperCase();
-        const ins={auth_user_id:u.id,name:u.user_metadata?.name||u.email.split('@')[0],phone:u.user_metadata?.phone||'',email:u.email.toLowerCase(),referral_code:code,lumin_points:0,total_points_earned:0,total_bookings:0,total_spent:0,is_active:true,account_status:'active',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
-        const{data:created,error:createErr}=await supabase.from('clients').insert(ins).select().single();
-        if(created) myClient=created;
-        else {
-          console.warn('Fallback client create failed:',createErr?.message);
-          myClient={id:null,name:u.user_metadata?.name||u.email,email:u.email,phone:''};
+      // Fix #1: Only fetch clients who have booked at THIS branch (not all platform clients)
+      const clientIds = [...new Set(bkData.map(b => b.client_id).filter(Boolean))]
+      if (clientIds.length > 0) {
+        // Supabase .in() has a limit, so batch if needed
+        const batchSize = 200
+        let allClients = []
+        for (let i = 0; i < clientIds.length; i += batchSize) {
+          const batch = clientIds.slice(i, i + batchSize)
+          const { data } = await supabase.from('clients').select('*').in('id', batch)
+          if (data) allClients = allClients.concat(data)
         }
+        setClients(allClients)
+      } else {
+        setClients([])
       }
-    }
-    setClient(myClient);
+    } catch (e) { console.error(e) }
+    setLoading(false)
+  }, [branchId])
 
-    // Fetch only THIS client's bookings
-    if(myClient?.id){
-      const [bk,rv] = await Promise.all([
-        supabase.from('bookings').select('*').eq('client_id',myClient.id).order('booking_date',{ascending:false}).limit(200),
-        supabase.from('reviews').select('booking_id').eq('client_id',myClient.id),
-      ]);
-      setBookings(bk.data||[]);
-      if(rv.data) setReviewedIds(new Set(rv.data.map(r=>r.booking_id)));
+  useEffect(() => { fetchAll() }, [fetchAll])
+
+  // Realtime subscription for new bookings
+  useEffect(() => {
+    if (!branchId) return
+    const channel = supabase.channel('studio-bookings-' + branchId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `branch_id=eq.${branchId}` }, (payload) => {
+        if (payload.eventType === 'INSERT') showToast('New booking received!');
+        fetchAll();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reviews', filter: `branch_id=eq.${branchId}` }, () => { showToast('New review received!'); fetchAll(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'waitlist', filter: `branch_id=eq.${branchId}` }, () => fetchAll())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_blocked_times', filter: `branch_id=eq.${branchId}` }, () => fetchAll())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [branchId, fetchAll])
+
+  const getClient = (id) => clients.find(c => c.id === id)
+  const getStaffMember = (id) => staff.find(s => s.id === id)
+  const getService = (id) => services.find(s => s.id === id)
+  const todayBk = bookings.filter(b => b.booking_date === todayStr())
+  const upcomingBk = bookings.filter(b => b.booking_date >= todayStr() && b.status !== 'cancelled')
+  const completedBk = bookings.filter(b => b.status === 'completed')
+  const todayRev = todayBk.filter(b => b.status === 'completed').reduce((s, b) => s + (b.total_amount || 0), 0)
+  const monthRev = completedBk.filter(b => { const d = new Date(b.booking_date); const n = new Date(); return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear() }).reduce((s, b) => s + (b.total_amount || 0), 0)
+  const avgRating = reviews.length ? (reviews.reduce((s, r) => s + r.rating_overall, 0) / reviews.length).toFixed(1) : '—'
+  const unreplied = reviews.filter(r => !r.response_text)
+
+  // CRUD
+  const updateBooking = async (id, data) => {
+    const { error } = await supabase.from('bookings').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) { showToast(friendlyError(error.message), 'error'); return }
+    showToast('Booking updated'); fetchAll(); setModal(null)
+  }
+  const cancelBooking = async (id, reason) => {
+    await updateBooking(id, { status: 'cancelled', cancelled_at: new Date().toISOString(), cancellation_reason: reason || null, cancelled_by: 'business' })
+  }
+  const updateBranch = async (data) => {
+    const { error } = await supabase.from('branches').update({ ...data, updated_at: new Date().toISOString() }).eq('id', branchId)
+    if (error) { showToast(friendlyError(error.message), 'error'); return }
+    showToast('Profile updated'); fetchAll(); setModal(null)
+  }
+  const saveStaff = async (id, data) => {
+    if (id) {
+      const { error } = await supabase.from('staff').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id)
+      if (error) { showToast(friendlyError(error.message), 'error'); return }
     } else {
-      setBookings([]);setReviewedIds(new Set());
+      const { error } = await supabase.from('staff').insert({ ...data, branch_id: branchId })
+      if (error) { showToast(friendlyError(error.message), 'error'); return }
     }
-  };
-
-  // Debounced version for realtime events (prevents rapid-fire refetches)
-  const fetchMyDataDebounced = () => {
-    if(fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current);
-    fetchDebounceRef.current = setTimeout(()=>fetchMyData(), 300);
-  };
-
-  // ---- REVIEWS: all visible reviews (needed for branch ratings) ----
-  const fetchReviews = async () => {
-    const{data}=await supabase.from('reviews').select('*').order('created_at',{ascending:false}).limit(500);
-    setReviews(data||[]);
-  };
-
-  // ---- INITIAL LOAD ----
-  useEffect(() => {
-    if(!authChecked) return;
-    (async()=>{
-      setLoading(true);
-      try {
-        if(!catalogLoaded.current) await fetchCatalog();
-        await fetchReviews();
-        if(authUser) await fetchMyData(authUser);
-      } catch(e){console.error(e)}
-      setLoading(false);
-    })();
-  }, [authChecked,authUser]);
-
-  // ---- DEEP LINK: luminbook.app/business-slug → go straight to business page ----
-  useEffect(() => {
-    if(loading || deepLinkHandled.current || !branches.length) return;
-    const path = initialPath.current;
-    if(!path || path==='index.html') return;
-    deepLinkHandled.current = true;
-    const match = branches.find(b => b.booking_slug && (b.booking_slug === path || b.booking_slug === path.replace(/-/g,'')));
-    if(match) {
-      setSelectedBranch(match); setPage('salon'); setNavHistory(['home']);
-      window.history.replaceState(null,'','/');
+    showToast(id ? 'Staff updated' : 'Staff added'); fetchAll(); setModal(null)
+  }
+  const saveService = async (data, action) => {
+    const { addons, ...serviceData } = data
+    let serviceId = data.id
+    if (action === 'update') {
+      const { error } = await supabase.from('services').update({ ...serviceData, updated_at: new Date().toISOString() }).eq('id', data.id)
+      if (error) { showToast(friendlyError(error.message), 'error'); return }
+    } else {
+      const { data: newSvc, error } = await supabase.from('services').insert(serviceData).select('id').single()
+      if (error) { showToast(friendlyError(error.message), 'error'); return }
+      serviceId = newSvc.id
     }
-  }, [loading, branches]);
-
-  const showToastFn = (msg,type='success') => {setToast({msg,type});setTimeout(()=>setToast(null),2500)};
-  const pushNotif = (title,body,type='info') => {setNotifications(prev=>[{id:Date.now(),title,body,type,time:new Date(),read:false},...prev].slice(0,50))};
-  const unreadCount = notifications.filter(n=>!n.read).length;
-  const markAllRead = () => setNotifications(prev=>prev.map(n=>({...n,read:true})));
-
-  useEffect(() => {
-    if(!client?.id) return;
-    const channel = supabase.channel('client-realtime')
-      .on('postgres_changes',{event:'*',schema:'public',table:'bookings',filter:`client_id=eq.${client.id}`},async payload=>{
-        if(payload.eventType==='UPDATE'){
-          const b=payload.new;
-          if(b.status==='confirmed'){showToastFn('Booking confirmed!');pushNotif('Booking Confirmed',`Your appointment on ${fmtDate(b.booking_date)} at ${fmtTime(b.booking_time)} is confirmed!`,'success')}
-          else if(b.status==='cancelled'&&b.cancelled_by==='business'){showToastFn('Your booking was cancelled by the studio','error');pushNotif('Booking Cancelled',`Your appointment on ${fmtDate(b.booking_date)} was cancelled by the studio. Your deposit will be refunded.`,'error')}
-          else if(b.status==='completed'){
-            // LuminPoints are awarded server-side by trigger (award_lumin_points_on_complete)
-            const earned=Math.max(1,Math.floor((b.total_amount||0)/10));
-            showToastFn(`+${earned} LuminPoints earned!`);pushNotif('Complete',`You earned ${earned} LuminPoints! Leave a review for bonus points`,'success');
-          }
-        }
-        fetchMyDataDebounced();
-      }).subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [client?.id]);
-
-  const getBranch = id => branches.find(b=>b.id===id);
-  const getService = id => services.find(s=>s.id===id);
-  const getStaffMember = id => staff.find(s=>s.id===id);
-  const branchReviews = bid => reviews.filter(r=>r.branch_id===bid);
-  const branchStaff = bid => staff.filter(s=>s.branch_id===bid);
-  const branchAvgRating = bid => {const rv=branchReviews(bid);return rv.length?(rv.reduce((s,r)=>s+(r.rating_overall||0),0)/rv.length).toFixed(1):'—'};
-  const clientBookings = bookings; // Already scoped to client in fetchMyData
-  const upcomingBookings = clientBookings.filter(b=>b.booking_date>=todayStr()&&!['cancelled','completed','no_show'].includes(b.status));
-  const pastBookings = clientBookings.filter(b=>b.status==='completed'||b.status==='no_show'||(b.booking_date<todayStr()&&b.status!=='cancelled'));
-  const categories = ['All',...new Set(services.map(s=>s.category).filter(Boolean))];
-
-  // Fetch reviewed booking IDs — handled inside fetchMyData
-
-  // Review handler
-  const onReview=(booking)=>{setReviewModal(booking);setReviewForm({rating:5,text:''})};
-  const submitReview=async()=>{
-    if(!reviewModal||reviewSubmitting)return;
-    setReviewSubmitting(true);
-    const{error}=await supabase.from('reviews').insert({client_id:client.id,branch_id:reviewModal.branch_id,service_id:reviewModal.service_id,staff_id:reviewModal.staff_id,booking_id:reviewModal.id,rating_overall:reviewForm.rating,rating_average:reviewForm.rating,review_text:reviewForm.text,is_visible:true,moderation_status:'approved',can_edit_until:new Date(Date.now()+7*86400000).toISOString(),created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
-    setReviewSubmitting(false);
-    if(!error){
-      const pts=5+(reviewForm.text?.length>20?5:0);
-      showToastFn(`Review submitted! +${pts} pts`);fetchMyData();fetchReviews()
-    }
-    else showToastFn('Couldn\'t submit review. Please try again.','error');
-    setReviewModal(null);
-  };
-
-  // Service compare: show other salons offering same service
-  const onServiceCompare=(svc)=>{setServiceCompare(svc)};
-  const compareResults=serviceCompare?services.filter(s=>s.name.toLowerCase()===serviceCompare.name.toLowerCase()&&s.id!==serviceCompare.id):[];
-
-  const [reminders,setReminders] = useState([]);
-  useEffect(() => {
-    if(!upcomingBookings.length){setReminders([]);return}
-    const now=new Date();
-    setReminders(upcomingBookings.filter(b=>{const dt=new Date(`${b.booking_date}T${b.booking_time||'09:00'}`);return(dt-now)/3600000>0&&(dt-now)/3600000<=24}).map(b=>({...b,hoursUntil:Math.round((new Date(`${b.booking_date}T${b.booking_time||'09:00'}`)-new Date())/3600000)})));
-  }, [upcomingBookings.length]);
-
-  const navigate = (pg,data) => {setNavHistory(h=>[...h,page]);setPage(pg);if(data?.branch)setSelectedBranch(data.branch);if(data?.bookingFlow)setBookingFlow(data.bookingFlow)};
-  const goBack = () => {const prev=navHistory[navHistory.length-1]||'home';setNavHistory(h=>h.slice(0,-1));setPage(prev)};
-  const toggleFav = bid => setFavorites(f=>f.includes(bid)?f.filter(x=>x!==bid):[...f,bid]);
-
-  const cancelBooking = async (id) => {
-    const bk=bookings.find(b=>b.id===id);
-    if(bk){const br=branches.find(b=>b.id===bk.branch_id);const ch=br?.cancellation_hours??2;const dt=new Date(`${bk.booking_date}T${bk.booking_time||'00:00'}`);const hu=(dt-new Date())/3600000;if(hu<ch&&hu>0&&(br?.cancellation_fee_percent||0)>0)showToastFn('Late cancellation fee may apply','error')}
-    const{error}=await supabase.from('bookings').update({status:'cancelled',cancelled_at:new Date().toISOString(),cancellation_reason:'Cancelled by client',cancelled_by:'client',updated_at:new Date().toISOString()}).eq('id',id);
-    if(!error){showToastFn('Booking cancelled');fetchMyData()}else showToastFn('Couldn\'t cancel booking. Please try again.','error');
-  };
-
-  const SUPABASE_URL = supabase.supabaseUrl;
-
-  const createBooking = async (flow) => {
-    // Prevent double-clicks
-    if (isProcessingPayment.current) return;
-    isProcessingPayment.current = true;
-
-    const svc = flow.service;
-    const deposit = parseFloat(svc?.deposit_amount) || parseFloat(flow.branch?.default_deposit) || 100;
-    const payerPhone = flow.payerPhone || client.phone || '';
-
-    // Double-booking guard
-    if(flow.staff?.id){
-      const{data:ex}=await supabase.from('bookings').select('id').eq('staff_id',flow.staff.id).eq('booking_date',flow.date).eq('booking_time',flow.time).neq('status','cancelled').limit(1);
-      if(ex?.length){isProcessingPayment.current=false;showToastFn('Slot just booked — pick another','error');return}
-    }else{
-      const branchStaff=staff.filter(s=>s.branch_id===flow.branch?.id&&s.is_active!==false);
-      const{data:ex}=await supabase.from('bookings').select('id').eq('branch_id',flow.branch.id).eq('booking_date',flow.date).eq('booking_time',flow.time).neq('status','cancelled');
-      if((ex?.length||0)>=Math.max(branchStaff.length,1)){isProcessingPayment.current=false;showToastFn('All stylists booked at this time — pick another','error');return}
-    }
-
-    // Reschedule — no payment needed
-    if(flow.rescheduleId){
-      const{error}=await supabase.from('bookings').update({booking_date:flow.date,booking_time:flow.time,staff_id:flow.staff?.id||null,status:'pending',updated_at:new Date().toISOString()}).eq('id',flow.rescheduleId);
-      isProcessingPayment.current=false;
-      if(!error){showToastFn('Rescheduled!');fetchMyData();setBookingFlow(null);setPage('bookings')}else showToastFn('Couldn\'t reschedule. Please try again.','error');return;
-    }
-
-    // If deposit required, initiate payment first
-    if (deposit > 0) {
-      if (!payerPhone) { isProcessingPayment.current=false; showToastFn('Enter your mobile money number to pay', 'error'); return; }
-      // Validate Zambian phone number format
-      const cleanPhone = payerPhone.replace(/[\s\-()]/g, '');
-      if (!/^(?:\+?260|0)[79]\d{8}$/.test(cleanPhone)) {
-        isProcessingPayment.current=false;
-        showToastFn('Please enter a valid Zambian phone number (e.g. 0971234567)', 'error');
-        return;
+    // Sync addons: delete existing, re-insert
+    if (serviceId && addons) {
+      await supabase.from('service_addons').delete().eq('service_id', serviceId)
+      if (addons.length > 0) {
+        const addonRows = addons.map(a => ({ service_id: serviceId, name: a.name, price: a.price, is_active: a.is_active ?? true }))
+        await supabase.from('service_addons').insert(addonRows)
       }
+    }
+    showToast(action === 'update' ? 'Service updated' : 'Service added'); fetchAll(); setModal(null)
+  }
+  const toggleServiceActive = async (id, active) => {
+    const { error } = await supabase.from('services').update({ is_active: !active, updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) { showToast(friendlyError(error.message), 'error'); return }
+    showToast('Service status updated'); fetchAll()
+  }
+  const toggleStaffActive = async (id, active) => {
+    const { error } = await supabase.from('staff').update({ is_active: !active, updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) { showToast(friendlyError(error.message), 'error'); return }
+    showToast('Staff status updated'); fetchAll()
+  }
+  const replyReview = async (id, text) => {
+    const { error } = await supabase.from('reviews').update({ response_text: text, response_date: todayStr(), updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) { showToast(friendlyError(error.message), 'error'); return }
+    showToast('Reply posted'); fetchAll(); setModal(null)
+  }
+  // Blocked times
+  const addBlockedTime = async (staffId, date, startTime, endTime, reason) => {
+    const { error } = await supabase.from('staff_blocked_times').insert({ staff_id: staffId, branch_id: branchId, block_date: date, start_time: startTime || null, end_time: endTime || null, reason: reason || 'day_off' })
+    if (error) { showToast(friendlyError(error.message), 'error'); return }
+    showToast('Time off added'); fetchAll(); setModal(null)
+  }
+  const removeBlockedTime = async (id) => {
+    await supabase.from('staff_blocked_times').delete().eq('id', id)
+    showToast('Time off removed'); fetchAll()
+  }
+  // Service image
+  const updateServiceImages = async (id, images) => {
+    const { error } = await supabase.from('services').update({ images, updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) showToast(friendlyError(error.message), 'error')
+    else { showToast('Images updated'); fetchAll() }
+  }
+  // Waitlist
+  const dismissWaitlist = async (id) => {
+    await supabase.from('waitlist').update({ status: 'notified', notified_at: new Date().toISOString() }).eq('id', id)
+    showToast('Client notified'); fetchAll()
+  }
+  // SMS helpers
+  const sendSMSAction = async (type, data = {}) => {
+    try {
+      const { data: result, error } = await supabase.functions.invoke('sms-notify', { body: { type, ...data } })
+      if (error) { showToast('SMS error: ' + error.message, 'error'); return }
+      if (result?.sent) showToast('SMS sent successfully')
+      else if (result?.skipped) showToast('SMS skipped: ' + (result.reason || 'see logs'), 'info')
+      else showToast('SMS failed: ' + (result?.error || 'unknown'), 'error')
+    } catch (e) { showToast('SMS error: ' + e.message, 'error') }
+  }
+  const sendReviewRequest = (bookingId) => sendSMSAction('send_review_request', { booking_id: bookingId })
 
-      setPaymentState({ step: 'initiating', message: 'Initiating payment...' });
-      paymentPollAbort.current = false;
+  // ═════ DASHBOARD ═════
+  const isPendingApproval = branch && (branch.approval_status === 'pending' || (!branch.is_active && branch.approval_status !== 'approved'))
 
+  function DashboardView() {
+    const todayNoShows = bookings.filter(b => b.booking_date === todayStr() && b.status === 'no_show').length
+    const todayWalkins = bookings.filter(b => b.booking_date === todayStr() && b.is_walk_in).length
+    const pendingCount = todayBk.filter(b => b.status === 'pending').length
+    const stats = [
+      { label: "Today's Bookings", value: todayBk.length, icon: 'calendar', color: C.accent, sub: pendingCount > 0 ? `${pendingCount} pending` : '' },
+      { label: "Today's Revenue", value: fmt(todayRev), icon: 'dollar', color: C.gold, sub: `Month: ${fmt(monthRev)}` },
+      { label: 'Walk-ins Today', value: todayWalkins, icon: 'walkin', color: C.accent, sub: '' },
+      { label: 'No-shows', value: todayNoShows, icon: 'noshow', color: todayNoShows > 0 ? C.danger : C.textMuted, sub: unreplied.length > 0 ? `${unreplied.length} unreplied reviews` : '' },
+    ]
+    return (
+      <div>
+        {isPendingApproval && (
+          <div style={{ background: '#fff8e1', border: '1px solid #ffe082', borderRadius: 14, padding: '16px 20px', marginBottom: 20, display: 'flex', gap: 12, alignItems: 'center' }}>
+            <Icon name="alert" size={22} color="#f9a825" />
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#e65100' }}>Studio Pending Approval</div>
+              <div style={{ fontSize: 13, color: '#795548', lineHeight: 1.5 }}>Your studio is being reviewed by the LuminBook team. You can set up your services, staff, and profile while you wait. Clients will find and book you once approved.</div>
+            </div>
+          </div>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+          {stats.map((s, i) => (
+            <div key={i} style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: '20px 22px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: -8, right: -4, opacity: 0.08 }}><Icon name={s.icon} size={52} color={s.color} /></div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>{s.label}</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: s.color, fontFamily: 'Fraunces' }}>{s.value}</div>
+              {s.sub && <div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>{s.sub}</div>}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <Card title="Today's Schedule" action={<Btn small variant="ghost" onClick={() => setPage('bookings')}>View All <ChevronRight size={14}/></Btn>}>
+            {todayBk.length === 0 ? <Empty icon="calendar" msg="No bookings today" /> : todayBk.slice(0, 5).map(b => {
+              const cl = getClient(b.client_id), sv = getService(b.service_id), st = getStaffMember(b.staff_id)
+              return (
+                <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 12, background: C.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.accent, fontSize: 13, flexShrink: 0, textAlign: 'center', lineHeight: 1.2 }}>{fmtTime(b.booking_time)}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: C.text }}>{cl?.name || 'Client'}</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>{sv?.name} • {st?.name}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    <Badge status={b.status} />
+                    {b.status === 'pending' && <button onClick={() => updateBooking(b.id, { status: 'confirmed' })} style={{ padding: '2px 8px', borderRadius: 6, border: `1px solid ${C.success}30`, background: '#e8f5ec', color: C.success, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', display: 'flex', alignItems: 'center', gap: 2 }}><Check size={12}/></button>}
+                    {b.status === 'confirmed' && <button onClick={() => updateBooking(b.id, { status: 'arrived' })} style={{ padding: '2px 8px', borderRadius: 6, border: `1px solid #00695c30`, background: '#e0f7fa', color: '#00695c', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>In</button>}
+                    {(b.status === 'arrived' || b.status === 'in_progress') && <button onClick={() => updateBooking(b.id, { status: 'completed', completed_at: new Date().toISOString() })} style={{ padding: '2px 8px', borderRadius: 6, border: `1px solid ${C.success}30`, background: '#e8f5ec', color: C.success, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>Done</button>}
+                  </div>
+                </div>
+              )
+            })}
+          </Card>
+          <Card title="Recent Reviews" action={<Btn small variant="ghost" onClick={() => setPage('reviews')}>View All <ChevronRight size={14}/></Btn>}>
+            {reviews.length === 0 ? <Empty icon="star" msg="No reviews yet" /> : reviews.slice(0, 4).map(r => {
+              const cl = getClient(r.client_id)
+              return (
+                <div key={r.id} style={{ padding: '12px 0', borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <span style={{ fontWeight: 600, fontSize: 13, color: C.text }}>{cl?.name || 'Client'}</span>
+                    <span style={{ color: C.gold, fontSize: 13 }}>{stars(r.rating_overall)}</span>
+                  </div>
+                  {r.review_text && <p style={{ margin: 0, fontSize: 13, color: C.textMuted, lineHeight: 1.4 }}>{r.review_text.slice(0, 80)}{r.review_text.length > 80 ? '…' : ''}</p>}
+                  {!r.response_text && <Btn small variant="secondary" style={{ marginTop: 6 }} onClick={() => setModal({ type: 'replyReview', review: r })}>Reply</Btn>}
+                </div>
+              )
+            })}
+          </Card>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 20 }}>
+          <Card title="Staff on Duty">
+            {staff.filter(s => s.is_active).map(s => {
+              const dow = new Date().getDay() || 7
+              const on = (s.working_days || []).includes(dow)
+              return (
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: C.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {s.profile_photo ? <img src={s.profile_photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontWeight: 700, color: C.accent }}>{s.name[0]}</span>}
+                  </div>
+                  <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div><div style={{ fontSize: 12, color: C.textMuted }}>{s.role}</div></div>
+                  <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: on ? C.successBg : C.dangerBg, color: on ? C.success : C.danger }}>{on ? 'On Duty' : 'Off'}</span>
+                </div>
+              )
+            })}
+          </Card>
+          <Card title="Quick Stats">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              {[{ l: 'Month Revenue', v: fmt(monthRev), c: C.gold }, { l: 'Total Bookings', v: bookings.length, c: C.accent }, { l: 'Active Staff', v: staff.filter(s => s.is_active).length, c: C.success }, { l: 'Total Reviews', v: reviews.length, c: C.rose }].map((s, i) => (
+                <div key={i} style={{ padding: 16, borderRadius: 10, background: C.bg, textAlign: 'center' }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: s.c, fontFamily: 'Fraunces' }}>{s.v}</div>
+                  <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+        {/* Waitlist */}
+        {waitlist.length > 0 && (
+          <Card title={`Waitlist (${waitlist.length})`} style={{ marginTop: 20 }}>
+            {waitlist.slice(0, 5).map(w => {
+              const cl = getClient(w.client_id), sv = getService(w.service_id), st = getStaffMember(w.staff_id)
+              return (
+                <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: C.roseLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.rose, fontSize: 16 }}>{cl?.name?.[0] || '?'}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{cl?.name || 'Client'}</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>{sv?.name || 'Any'} • {fmtDate(w.preferred_date)} {w.preferred_time ? fmtTime(w.preferred_time) : ''} {st ? `• ${st.name}` : ''}</div>
+                  </div>
+                  <Btn small variant="success" onClick={() => dismissWaitlist(w.id)}>Notify</Btn>
+                </div>
+              )
+            })}
+          </Card>
+        )}
+      </div>
+    )
+  }
+
+  // ═════ BOOKINGS ═════
+  function BookingsView() {
+    const [filter, setFilter] = useState('all')
+    const [search, setSearch] = useState('')
+    const filtered = bookings.filter(b => {
+      if (filter !== 'all' && b.status !== filter) return false
+      if (search) { const cl = getClient(b.client_id); const sv = getService(b.service_id); const q = search.toLowerCase(); return (cl?.name || '').toLowerCase().includes(q) || (sv?.name || '').toLowerCase().includes(q) }
+      return true
+    })
+    return (
+      <div>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+          {['all', 'pending', 'confirmed', 'arrived', 'in_progress', 'completed', 'no_show', 'cancelled'].map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 16px', borderRadius: 20, border: `1.5px solid ${filter === f ? C.accent : C.border}`, background: filter === f ? C.accentLight : 'transparent', color: filter === f ? C.accent : C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>{f === 'all' ? 'All' : (SC[f]?.label || f)}</button>
+          ))}
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search client or service…" style={{ marginLeft: 'auto', padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', width: 200, outline: 'none', color: C.text }} />
+          <Btn small onClick={() => setModal({ type: 'walkinBooking' })} style={{ background: C.accent, color: '#fff' }}>+ Walk-in</Btn>
+        </div>
+        <Card>
+          {filtered.length === 0 ? <Empty icon="calendar" msg="No bookings match" /> : (
+            <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 1000 }}>
+              <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Date', 'Time', 'Client', 'Service', 'Staff', 'Amount', 'Deposit', 'Notes', 'Status', 'Actions'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8 }}>{h}</th>)}</tr></thead>
+              <tbody>{filtered.map(b => {
+                const cl = getClient(b.client_id), sv = getService(b.service_id), st = getStaffMember(b.staff_id)
+                return (
+                  <tr key={b.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td style={{ padding: '12px 8px', fontWeight: 500 }}>{fmtDate(b.booking_date)}</td>
+                    <td style={{ padding: '12px 8px' }}>{fmtTime(b.booking_time)}</td>
+                    <td style={{ padding: '12px 8px', fontWeight: 600, color: C.text }}>{cl?.name || (b.walk_in_name || '—')}{b.is_walk_in && <span style={{ fontSize: 10, color: C.gold, marginLeft: 4 }}>WALK-IN</span>}</td>
+                    <td style={{ padding: '12px 8px' }}>{sv?.name || '—'}</td>
+                    <td style={{ padding: '12px 8px' }}>{st?.name || '—'}</td>
+                    <td style={{ padding: '12px 8px', fontWeight: 600 }}>{fmt(b.total_amount)}{b.discount_amount > 0 && <div style={{ fontSize: 10, color: C.gold }}>-{fmt(b.discount_amount)} pts</div>}</td>
+                    <td style={{ padding: '12px 8px' }}>{b.deposit_paid ? <span style={{ color: C.success, fontWeight: 600, fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 2 }}><Check size={12}/> K{b.deposit_amount || branch?.default_deposit || 100}</span> : <button onClick={() => updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: b.deposit_amount || branch?.default_deposit || 100 })} style={{ padding: '2px 8px', borderRadius: 4, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', fontSize: 11, color: C.accent, fontFamily: 'DM Sans' }}>Mark Paid</button>}</td>
+                    <td style={{ padding: '12px 8px', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: C.textMuted }} title={b.client_notes || ''}>{b.client_notes || '—'}</td>
+                    <td style={{ padding: '12px 8px' }}><Badge status={b.status} /></td>
+                    <td style={{ padding: '12px 8px' }}>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {b.status === 'pending' && <Btn small variant="success" onClick={() => updateBooking(b.id, { status: 'confirmed' })}>Confirm</Btn>}
+                        {b.status === 'confirmed' && <Btn small onClick={() => updateBooking(b.id, { status: 'arrived' })} style={{ background: '#e0f7fa', color: '#00695c', border: '1px solid #00695c40' }}>Arrived</Btn>}
+                        {b.status === 'arrived' && <Btn small onClick={() => updateBooking(b.id, { status: 'in_progress' })} style={{ background: '#f3e5f5', color: '#7b1fa2', border: '1px solid #7b1fa240' }}>Start</Btn>}
+                        {(b.status === 'arrived' || b.status === 'in_progress') && <Btn small variant="success" onClick={() => updateBooking(b.id, { status: 'completed', completed_at: new Date().toISOString() })}>Done</Btn>}
+                        {(b.status === 'confirmed' || b.status === 'pending') && <>
+                          <Btn small variant="danger" onClick={() => setModal({ type: 'cancelBooking', booking: b })}>Cancel</Btn>
+                          <Btn small onClick={() => { updateBooking(b.id, { status: 'no_show' }); const fee = Math.round((b.total_amount || 0) * (branch?.no_show_fee_percent || 50) / 100); showToast(`No-show marked. Fee: ${fmt(fee)}`) }} style={{ background: '#fce4ec', color: '#880e4f', border: '1px solid #880e4f40', fontSize: 11 }}>No-show</Btn>
+                        </>}
+                        <Btn small variant="ghost" onClick={() => setModal({ type: 'viewBooking', booking: b })}>View</Btn>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}</tbody>
+            </table>
+            </div>
+          )}
+        </Card>
+      </div>
+    )
+  }
+
+  // ═════ SCHEDULE ═════
+  function ScheduleView() {
+    const [selDate, setSelDate] = useState(todayStr())
+    const [tab, setTab] = useState('calendar')
+    const [editStaff, setEditStaff] = useState(null)
+    const [blockForm, setBlockForm] = useState({ staff_id: '', block_date: todayStr(), start_time: '', end_time: '', reason: 'day_off' })
+    const dayBk = bookings.filter(b => b.booking_date === selDate && b.status !== 'cancelled')
+    const openH = parseInt((branch?.open_time || '08:00').slice(0, 2))
+    const closeH = parseInt((branch?.close_time || '17:00').slice(0, 2))
+    const hours = Array.from({ length: closeH - openH + 1 }, (_, i) => i + openH)
+    const getWeek = () => {
+      const d = new Date(selDate + 'T12:00:00'); const day = d.getDay() || 7
+      const mon = new Date(d); mon.setDate(d.getDate() - day + 1)
+      return Array.from({ length: 7 }, (_, i) => { const dt = new Date(mon); dt.setDate(mon.getDate() + i); return dt.toISOString().split('T')[0] })
+    }
+    const week = getWeek()
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    const allDays = [{ v: 1, l: 'Mon' }, { v: 2, l: 'Tue' }, { v: 3, l: 'Wed' }, { v: 4, l: 'Thu' }, { v: 5, l: 'Fri' }, { v: 6, l: 'Sat' }, { v: 7, l: 'Sun' }]
+
+    const saveStaffHours = async (s) => {
+      const { error } = await supabase.from('staff').update({ working_days: editStaff.working_days, start_time: editStaff.start_time, end_time: editStaff.end_time, updated_at: new Date().toISOString() }).eq('id', s.id)
+      if (!error) { showToast('Schedule updated'); setEditStaff(null); fetchAll() } else showToast(friendlyError(error.message), 'error')
+    }
+
+    const addBlock = async () => {
+      if (!blockForm.staff_id || !blockForm.block_date) return showToast('Select staff & date', 'error')
+      await addBlockedTime(blockForm.staff_id, blockForm.block_date, blockForm.start_time || null, blockForm.end_time || null, blockForm.reason)
+      setBlockForm(f => ({ ...f, start_time: '', end_time: '', reason: 'day_off' }))
+    }
+
+    const tabs = [{ id: 'calendar', l: 'Calendar', icon: 'calendar' }, { id: 'hours', l: 'Staff Hours', icon: 'clock' }, { id: 'blocked', l: 'Time Off', icon: 'noshow' }]
+
+    return (
+      <div>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 10, border: tab === t.id ? `2px solid ${C.accent}` : `1px solid ${C.border}`, background: tab === t.id ? C.accentLight : C.white, color: tab === t.id ? C.accent : C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', minHeight: 44 }}>
+              <Icon name={t.icon} size={16} color={tab === t.id ? C.accent : C.textMuted} />{t.l}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'calendar' && (
+          <>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 20, justifyContent: 'center', flexWrap: 'wrap' }}>
+              {week.map((d, i) => {
+                const isTdy = d === todayStr(), isSel = d === selDate
+                const cnt = bookings.filter(b => b.booking_date === d && b.status !== 'cancelled').length
+                return (
+                  <button key={d} onClick={() => setSelDate(d)} style={{ padding: bp === 'mobile' ? '8px 10px' : '10px 16px', borderRadius: 12, border: isSel ? `2px solid ${C.accent}` : `1px solid ${C.border}`, background: isSel ? C.accentLight : isTdy ? C.bg : C.white, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'center', minWidth: bp === 'mobile' ? 44 : 72, transition: 'all 0.15s' }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted }}>{dayNames[i]}</div>
+                    <div style={{ fontSize: bp === 'mobile' ? 16 : 20, fontWeight: 700, color: isSel ? C.accent : C.text, fontFamily: 'Fraunces' }}>{new Date(d + 'T12:00:00').getDate()}</div>
+                    {cnt > 0 && <div style={{ fontSize: 10, color: C.accent, fontWeight: 700 }}>{cnt}</div>}
+                  </button>
+                )
+              })}
+            </div>
+            <Card title={`Schedule \u2014 ${fmtDate(selDate)}`}>
+              {hours.map(h => {
+                const hBk = dayBk.filter(b => parseInt((b.booking_time || '').split(':')[0]) === h)
+                return (
+                  <div key={h} style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, minHeight: 56 }}>
+                    <div style={{ width: 70, padding: '10px 0', fontSize: 12, fontWeight: 600, color: C.textMuted, flexShrink: 0 }}>{h > 12 ? h - 12 : h}:00 {h >= 12 ? 'PM' : 'AM'}</div>
+                    <div style={{ flex: 1, display: 'flex', gap: 8, padding: '6px 0', flexWrap: 'wrap' }}>
+                      {hBk.map(b => {
+                        const cl = getClient(b.client_id), sv = getService(b.service_id), st = getStaffMember(b.staff_id)
+                        const sc = SC[b.status] || SC.pending
+                        return (
+                          <div key={b.id} onClick={() => setModal({ type: 'viewBooking', booking: b })} style={{ padding: '8px 12px', borderRadius: 8, background: sc.bg, borderLeft: `3px solid ${sc.text}`, cursor: 'pointer', flex: '1 1 200px', maxWidth: 300 }}>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: C.text }}>{cl?.name || b.walk_in_name || 'Client'}</div>
+                            <div style={{ fontSize: 11, color: C.textMuted }}>{sv?.name || 'Service'} \u2022 {st?.name || 'Any'} \u2022 {b.duration}min</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+              {dayBk.length === 0 && <Empty icon="calendar" msg="No appointments this day" />}
+            </Card>
+          </>
+        )}
+
+        {tab === 'hours' && (
+          <Card title="Staff Working Hours">
+            <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>Set each staff member\u2019s regular working days and hours. Clients can only book during these times.</p>
+            {staff.length === 0 ? <Empty icon="users" msg="Add staff first in the Staff tab" /> : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {staff.map(s => {
+                  const isEditing = editStaff?.id === s.id
+                  const data = isEditing ? editStaff : s
+                  return (
+                    <div key={s.id} style={{ border: `1px solid ${isEditing ? C.accent : C.border}`, borderRadius: 12, padding: 16, background: isEditing ? `${C.accent}05` : C.white }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isEditing ? 16 : 0, flexWrap: 'wrap', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: C.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.accent, fontSize: 14 }}>{s.name?.[0]}</div>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 14, color: C.text }}>{s.name}</div>
+                            <div style={{ fontSize: 12, color: C.textMuted }}>{s.role || 'Stylist'} \u2022 {(data.working_days || []).length} days/week \u2022 {(data.start_time || '09:00').slice(0, 5)}\u2013{(data.end_time || '17:00').slice(0, 5)}</div>
+                          </div>
+                        </div>
+                        {isEditing ? (
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <Btn small onClick={() => saveStaffHours(s)}>Save</Btn>
+                            <Btn small variant="ghost" onClick={() => setEditStaff(null)}>Cancel</Btn>
+                          </div>
+                        ) : (
+                          <Btn small variant="secondary" onClick={() => setEditStaff({ ...s })}>Edit</Btn>
+                        )}
+                      </div>
+                      {isEditing && (
+                        <div>
+                          <div style={{ marginBottom: 12 }}>
+                            <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Working Days</label>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {allDays.map(d => {
+                                const on = (editStaff.working_days || []).includes(d.v)
+                                return <button key={d.v} onClick={() => setEditStaff(p => ({ ...p, working_days: on ? p.working_days.filter(x => x !== d.v) : [...(p.working_days || []), d.v] }))} style={{ padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${on ? C.accent : C.border}`, background: on ? C.accentLight : C.white, color: on ? C.accent : C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', minHeight: 40 }}>{d.l}</button>
+                              })}
+                            </div>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            <div>
+                              <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Start Time</label>
+                              <input type="time" value={(editStaff.start_time || '09:00').slice(0, 5)} onChange={e => setEditStaff(p => ({ ...p, start_time: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', color: C.text }} />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>End Time</label>
+                              <input type="time" value={(editStaff.end_time || '17:00').slice(0, 5)} onChange={e => setEditStaff(p => ({ ...p, end_time: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', color: C.text }} />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Card>
+        )}
+
+        {tab === 'blocked' && (
+          <>
+            <Card title="Block Time Off">
+              <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>Block off times when staff are unavailable. Clients won\u2019t be able to book these slots.</p>
+              <div style={{ display: 'grid', gridTemplateColumns: bp === 'mobile' ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 16, padding: 16, background: C.bg, borderRadius: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Staff</label>
+                  <select value={blockForm.staff_id} onChange={e => setBlockForm(f => ({ ...f, staff_id: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }}>
+                    <option value="">Select staff\u2026</option>
+                    {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Date</label>
+                  <input type="date" value={blockForm.block_date} onChange={e => setBlockForm(f => ({ ...f, block_date: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>From (blank = all day)</label>
+                  <input type="time" value={blockForm.start_time} onChange={e => setBlockForm(f => ({ ...f, start_time: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>To</label>
+                  <input type="time" value={blockForm.end_time} onChange={e => setBlockForm(f => ({ ...f, end_time: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Reason</label>
+                  <select value={blockForm.reason} onChange={e => setBlockForm(f => ({ ...f, reason: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }}>
+                    <option value="day_off">Day Off</option><option value="leave">Leave</option><option value="lunch">Lunch Break</option><option value="personal">Personal</option><option value="training">Training</option><option value="other">Other</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                  <Btn onClick={addBlock} style={{ width: '100%' }}>Block Time</Btn>
+                </div>
+              </div>
+            </Card>
+            <Card title="Upcoming Blocked Times" style={{ marginTop: 16 }}>
+              {blockedTimes.length === 0 ? <Empty icon="clock" msg="No blocked times set" /> : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {blockedTimes.sort((a, b) => a.block_date.localeCompare(b.block_date)).map(bt => {
+                    const st = getStaffMember(bt.staff_id)
+                    return (
+                      <div key={bt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, flexWrap: 'wrap', gap: 8 }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 14, color: C.text }}>{st?.name || 'Staff'}</div>
+                          <div style={{ fontSize: 12, color: C.textMuted }}>{fmtDate(bt.block_date)} \u2022 {bt.start_time ? `${bt.start_time.slice(0, 5)}\u2013${(bt.end_time || '').slice(0, 5)}` : 'All day'} \u2022 {(bt.reason || 'day_off').replace(/_/g, ' ')}</div>
+                        </div>
+                        <button onClick={() => removeBlockedTime(bt.id)} style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.danger}30`, background: '#fce4ec', color: C.danger, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', minHeight: 36 }}>Remove</button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </Card>
+          </>
+        )}
+      </div>
+    )
+  }
+
+  // ═════ STAFF ═════
+  function StaffView() {
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}><Btn onClick={() => setModal({ type: 'addStaff' })}>+ Add Staff</Btn></div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+          {staff.map(s => {
+            const dow = new Date().getDay() || 7, on = (s.working_days || []).includes(dow)
+            return (
+              <Card key={s.id}>
+                <div style={{ display: 'flex', gap: 14, marginBottom: 14 }}>
+                  <div style={{ width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: C.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {s.profile_photo ? <img src={s.profile_photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontWeight: 700, color: C.accent, fontSize: 20 }}>{s.name[0]}</span>}
+                  </div>
+                  <div><div style={{ fontWeight: 700, fontSize: 16, color: C.text, fontFamily: 'Fraunces' }}>{s.name}</div><div style={{ fontSize: 13, color: C.textMuted }}>{s.role}</div><span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: on ? C.successBg : C.dangerBg, color: on ? C.success : C.danger }}>{on ? 'On Duty' : 'Off'}</span></div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+                  {[{ l: 'Rating', v: s.rating ? <span style={{display:'flex',alignItems:'center',gap:2}}>{s.rating}<Star size={12} fill="#c9a84c" stroke="#c9a84c" strokeWidth={0}/></span> : '—' }, { l: 'Done', v: s.bookings_completed || 0 }, { l: 'Exp', v: `${s.years_experience || 0}yr` }].map((x, i) => (
+                    <div key={i} style={{ textAlign: 'center', padding: 8, borderRadius: 8, background: C.bg }}><div style={{ fontSize: 15, fontWeight: 700, color: C.accent }}>{x.v}</div><div style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase' }}>{x.l}</div></div>
+                  ))}
+                </div>
+                {s.specialties?.length > 0 && <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 12 }}>{s.specialties.map(sp => <span key={sp} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 12, background: C.goldLight, color: C.gold, fontWeight: 500 }}>{sp}</span>)}</div>}
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>{fmtTime(s.start_time)} – {fmtTime(s.end_time)}</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <Btn small variant="secondary" onClick={() => setModal({ type: 'editStaff', staffMember: s })}>Edit</Btn>
+                  <Btn small variant="ghost" onClick={() => setModal({ type: 'blockTime', staffMember: s })}>Time Off</Btn>
+                  <Btn small variant={s.is_active ? 'danger' : 'success'} onClick={() => toggleStaffActive(s.id, s.is_active)}>{s.is_active ? 'Deactivate' : 'Activate'}</Btn>
+                </div>
+                {blockedTimes.filter(bt => bt.staff_id === s.id).length > 0 && (
+                  <div style={{ marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Upcoming Time Off</div>
+                    {blockedTimes.filter(bt => bt.staff_id === s.id).slice(0, 3).map(bt => (
+                      <div key={bt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, padding: '4px 0' }}>
+                        <span style={{ color: C.textMuted }}>{bt.block_date} {bt.start_time ? `${fmtTime(bt.start_time)}–${fmtTime(bt.end_time)}` : '(all day)'}</span>
+                        <button onClick={() => removeBlockedTime(bt.id)} style={{ background: 'none', border: 'none', color: C.danger, fontSize: 14, cursor: 'pointer', padding: '0 4px' }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // ═════ SERVICES ═════
+  function ServicesView() {
+    const cats = [...new Set(services.map(s => s.category))]
+    const getAddons = (svcId) => serviceAddons.filter(a => a.service_id === svcId)
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 13, color: C.textMuted }}>{services.length} services across {cats.length} categories</div>
+          <Btn onClick={() => setModal({ type: 'addService' })}>+ Add Service</Btn>
+        </div>
+        {cats.length === 0 ? (
+          <Card><Empty icon="scissors" msg="No services yet. Add your first service to get started." /></Card>
+        ) : cats.map(cat => (
+          <div key={cat} style={{ marginBottom: 28 }}>
+            <h3 style={{ fontSize: 18, fontFamily: 'Fraunces', color: C.text, marginBottom: 12, paddingBottom: 6, borderBottom: `2px solid ${C.accentLight}` }}>{cat}</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+              {services.filter(s => s.category === cat).map(s => {
+                const sAddons = getAddons(s.id)
+                const thumb = s.images?.[0]
+                return (
+                  <Card key={s.id} style={{ position: 'relative', cursor: 'pointer', overflow: 'hidden' }} onClick={() => setModal({ type: 'editService', service: s })}>
+                    {thumb && <img src={thumb} alt="" style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 10, marginBottom: 10 }} />}
+                    {s.images?.length > 1 && <div style={{ position: 'absolute', top: thumb ? 102 : 8, right: 12, background: 'rgba(0,0,0,.6)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10 }}>+{s.images.length - 1} more</div>}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                      <div><div style={{ fontWeight: 700, fontSize: 15, color: C.text, fontFamily: 'Fraunces' }}>{s.name}</div><div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{s.duration}min{s.duration_max ? ` – ${s.duration_max}min` : ''}</div></div>
+                      <div style={{ textAlign: 'right' }}><div style={{ fontWeight: 700, fontSize: 17, color: C.accent }}>{fmt(s.price)}</div></div>
+                    </div>
+                    {s.description && <p style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.4, margin: '6px 0' }}>{s.description}</p>}
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 6 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: C.gold, padding: '3px 8px', borderRadius: 8, background: C.goldLight }}>Deposit: K{s.deposit_amount || branch?.default_deposit || 100}</div>
+                      {sAddons.length > 0 && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent, padding: '3px 8px', borderRadius: 8, background: C.accentLight }}>{sAddons.length} add-on{sAddons.length > 1 ? 's' : ''}</div>}
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => toggleServiceActive(s.id, s.is_active)} style={{ background: s.is_active ? C.successBg : C.dangerBg, border: 'none', color: s.is_active ? C.success : C.danger, borderRadius: 6, padding: '4px 8px', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>{s.is_active ? 'Active' : 'Inactive'}</button>
+                      </div>
+                    </div>
+                    <span style={{ position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: '50%', background: s.is_active ? C.success : C.danger }} />
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // ═════ CLIENTS ═════
+  function ClientsView() {
+    const [search, setSearch] = useState('')
+    const filtered = clients.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.phone || '').includes(search) || (c.email || '').includes(search))
+    return (
+      <div>
+        <div style={{ marginBottom: 16 }}><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients…" style={{ padding: '10px 16px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', width: 320, outline: 'none', color: C.text, background: C.white }} /></div>
+        <Card>
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 700 }}>
+            <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Client', 'Phone', 'Bookings', 'Spent', 'LuminPoints', 'Status'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
+            <tbody>{filtered.map(c => (
+              <tr key={c.id} style={{ borderBottom: `1px solid ${C.border}`, cursor: 'pointer' }} onClick={() => setModal({ type: 'viewClient', client: c })}>
+                <td style={{ padding: '12px 8px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={{ width: 34, height: 34, borderRadius: '50%', background: C.roseLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.rose, fontSize: 13 }}>{c.name[0]}</div><div><div style={{ fontWeight: 600, color: C.text }}>{c.name}</div><div style={{ fontSize: 11, color: C.textMuted }}>{c.email}</div></div></div></td>
+                <td style={{ padding: '12px 8px' }}>{c.phone}</td>
+                <td style={{ padding: '12px 8px', fontWeight: 600 }}>{c.total_bookings || 0}</td>
+                <td style={{ padding: '12px 8px', fontWeight: 600, color: C.accent }}>{fmt(c.total_spent || 0)}</td>
+                <td style={{ padding: '12px 8px' }}><span style={{ fontWeight: 700, color: C.gold }}>{c.lumin_points || 0}</span> pts</td>
+                <td style={{ padding: '12px 8px' }}><span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: c.is_active ? C.successBg : C.dangerBg, color: c.is_active ? C.success : C.danger }}>{c.is_active ? 'Active' : 'Inactive'}</span></td>
+              </tr>
+            ))}</tbody>
+          </table>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  // ═════ REVIEWS ═════
+  function ReviewsView() {
+    const [filter, setFilter] = useState('all')
+    const filtered = reviews.filter(r => filter === 'unreplied' ? !r.response_text : filter === 'replied' ? !!r.response_text : true)
+    return (
+      <div>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center' }}>
+          {['all', 'unreplied', 'replied'].map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 16px', borderRadius: 20, border: `1.5px solid ${filter === f ? C.rose : C.border}`, background: filter === f ? C.roseLight : 'transparent', color: filter === f ? C.rose : C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', textTransform: 'capitalize' }}>{f}</button>
+          ))}
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}><span style={{ fontSize: 28, fontWeight: 700, color: C.gold, fontFamily: 'Fraunces' }}>{avgRating}</span><div><div style={{ color: C.gold, fontSize: 14 }}>{stars(parseFloat(avgRating) || 0)}</div><div style={{ fontSize: 11, color: C.textMuted }}>{reviews.length} reviews</div></div></div>
+        </div>
+        {filtered.length === 0 ? <Card><Empty icon="star" msg="No reviews match" /></Card> : filtered.map(r => {
+          const cl = getClient(r.client_id), sv = getService(r.service_id), st = getStaffMember(r.staff_id)
+          return (
+            <Card key={r.id} style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                  <div style={{ width: 42, height: 42, borderRadius: '50%', background: C.roseLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.rose }}>{(cl?.name || 'C')[0]}</div>
+                  <div><div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{cl?.name || 'Client'}</div><div style={{ fontSize: 12, color: C.textMuted }}>{sv?.name}{st ? ` • ${st.name}` : ''} • {new Date(r.created_at).toLocaleDateString()}</div></div>
+                </div>
+                <div style={{ color: C.gold, fontSize: 16 }}>{stars(r.rating_overall)}</div>
+              </div>
+              {r.review_text && <p style={{ margin: '12px 0', fontSize: 14, color: C.text, lineHeight: 1.5, paddingLeft: 54 }}>{r.review_text}</p>}
+              {r.response_text ? (
+                <div style={{ marginLeft: 54, padding: '12px 16px', borderRadius: 10, background: C.bg, borderLeft: `3px solid ${C.accent}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, marginBottom: 4 }}>YOUR REPLY • {r.response_date}</div>
+                  <p style={{ margin: 0, fontSize: 13, color: C.text, lineHeight: 1.4 }}>{r.response_text}</p>
+                </div>
+              ) : <div style={{ marginLeft: 54, marginTop: 8 }}><Btn small variant="secondary" onClick={() => setModal({ type: 'replyReview', review: r })}>Reply to Review</Btn></div>}
+            </Card>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // ═════ FINANCIALS ═════
+  function FinancialsView() {
+    const now = new Date()
+    const thisM = completedBk.filter(b => { const d = new Date(b.booking_date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() })
+    const lastM = completedBk.filter(b => { const d = new Date(b.booking_date); const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1); return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear() })
+    const tmRev = thisM.reduce((s, b) => s + (b.total_amount || 0), 0)
+    const lmRev = lastM.reduce((s, b) => s + (b.total_amount || 0), 0)
+    const fees = thisM.reduce((s, b) => s + (b.platform_fee || 0), 0)
+    const net = tmRev - fees
+    const noShows = bookings.filter(b => b.status === 'no_show')
+    const noShowsThisM = noShows.filter(b => { const d = new Date(b.booking_date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() })
+    const noShowFees = noShowsThisM.reduce((s, b) => s + Math.round((b.total_amount || 0) * (branch?.no_show_fee_percent || 50) / 100), 0)
+    const depositsThisM = thisM.filter(b => b.deposit_paid).reduce((s, b) => s + (b.deposit_amount || 0), 0)
+    const growth = lmRev > 0 ? Math.round(((tmRev - lmRev) / lmRev) * 100) : (tmRev > 0 ? 100 : 0)
+
+    // Revenue trend — last 6 months
+    const trendData = Array.from({ length: 6 }, (_, i) => {
+      const m = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
+      const mBk = completedBk.filter(b => { const d = new Date(b.booking_date); return d.getMonth() === m.getMonth() && d.getFullYear() === m.getFullYear() })
+      return { month: m.toLocaleDateString('en-ZM', { month: 'short' }), revenue: mBk.reduce((s, b) => s + (b.total_amount || 0), 0), count: mBk.length }
+    })
+    const maxRev = Math.max(...trendData.map(t => t.revenue), 1)
+
+    const bySvc = {}, byStf = {}
+    completedBk.forEach(b => { const n = getService(b.service_id)?.name || 'Other'; bySvc[n] = (bySvc[n] || 0) + (b.total_amount || 0) })
+    completedBk.forEach(b => { const n = getStaffMember(b.staff_id)?.name || 'Unassigned'; byStf[n] = (byStf[n] || 0) + (b.total_amount || 0) })
+    const bar = (data, color1, color2) => Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, amt]) => {
+      const mx = Math.max(...Object.values(data))
+      return (
+        <div key={name} style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span style={{ fontSize: 13, fontWeight: 500, color: C.text }}>{name}</span><span style={{ fontSize: 13, fontWeight: 700, color: color1 }}>{fmt(amt)}</span></div>
+          <div style={{ height: 6, borderRadius: 3, background: C.bg, overflow: 'hidden' }}><div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${color1}, ${color2})`, width: `${(amt / mx) * 100}%` }} /></div>
+        </div>
+      )
+    })
+    return (
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+          {[
+            { l: 'This Month', v: fmt(tmRev), c: C.gold, s: `${thisM.length} bookings • ${growth >= 0 ? '↑' : '↓'}${Math.abs(growth)}% vs last month` },
+            { l: 'Last Month', v: fmt(lmRev), c: C.textMuted, s: `${lastM.length} bookings` },
+            { l: 'Net Earnings', v: fmt(net), c: C.success, s: `After ${fmt(fees)} in fees` },
+          ].map((s, i) => (
+            <Card key={i}><div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>{s.l}</div><div style={{ fontSize: 26, fontWeight: 700, color: s.c, fontFamily: 'Fraunces' }}>{s.v}</div><div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>{s.s}</div></Card>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 24 }}>
+          {[
+            { l: 'Deposits Collected', v: fmt(depositsThisM), c: C.accent, s: 'This month' },
+            { l: 'No-shows', v: `${noShowsThisM.length}`, c: C.danger, s: `${fmt(noShowFees)} in fees` },
+            { l: 'Avg per Booking', v: fmt(thisM.length ? Math.round(tmRev / thisM.length) : 0), c: C.accent, s: 'This month' },
+          ].map((s, i) => (
+            <Card key={i}><div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>{s.l}</div><div style={{ fontSize: 22, fontWeight: 700, color: s.c, fontFamily: 'Fraunces' }}>{s.v}</div><div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>{s.s}</div></Card>
+          ))}
+        </div>
+
+        {/* Revenue Trend Chart */}
+        <Card title="Revenue Trend (6 Months)" style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 180, padding: '10px 0' }}>
+            {trendData.map((t, i) => {
+              const h = maxRev > 0 ? (t.revenue / maxRev) * 140 : 0
+              const isCurrentMonth = i === trendData.length - 1
+              return (
+                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: isCurrentMonth ? C.accent : C.textMuted }}>{fmt(t.revenue)}</span>
+                  <div style={{ width: '100%', maxWidth: 60, height: Math.max(h, 4), borderRadius: 6, background: isCurrentMonth ? `linear-gradient(180deg, ${C.accent}, ${C.rose})` : `linear-gradient(180deg, ${C.border}, ${C.bg})`, transition: 'height 0.3s' }} />
+                  <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 600 }}>{t.month}</span>
+                  <span style={{ fontSize: 10, color: C.textLight }}>{t.count} bk</span>
+                </div>
+              )
+            })}
+          </div>
+        </Card>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+          <Card title="Revenue by Service">{Object.keys(bySvc).length ? bar(bySvc, C.accent, C.rose) : <Empty icon="dollar" msg="No data yet" />}</Card>
+          <Card title="Revenue by Staff">{Object.keys(byStf).length ? bar(byStf, C.gold, C.accent) : <Empty icon="dollar" msg="No data yet" />}</Card>
+        </div>
+        <Card title="Recent Transactions" style={{ marginTop: 0 }}>
+          {completedBk.length === 0 ? <Empty icon="dollar" msg="No transactions yet" /> : (
+            <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 600 }}>
+              <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Date', 'Client', 'Service', 'Amount', 'Fee', 'Net'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
+              <tbody>{completedBk.slice(0, 10).map(b => {
+                const cl = getClient(b.client_id), sv = getService(b.service_id)
+                return (
+                  <tr key={b.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td style={{ padding: '10px 8px' }}>{fmtDate(b.booking_date)}</td>
+                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>{cl?.name || '—'}</td>
+                    <td style={{ padding: '10px 8px' }}>{sv?.name || '—'}</td>
+                    <td style={{ padding: '10px 8px', fontWeight: 600, color: C.success }}>{fmt(b.total_amount)}</td>
+                    <td style={{ padding: '10px 8px', color: C.danger }}>-{fmt(b.platform_fee || 0)}</td>
+                    <td style={{ padding: '10px 8px', fontWeight: 700 }}>{fmt((b.total_amount || 0) - (b.platform_fee || 0))}</td>
+                  </tr>
+                )
+              })}</tbody>
+            </table>
+            </div>
+          )}
+        </Card>
+      </div>
+    )
+  }
+
+  // ═════ PROFILE ═════
+  function ProfileView() {
+    if (!branch) return null
+    return (
+      <div style={{ maxWidth: 700 }}>
+        <Card>
+          <div style={{ display: 'flex', gap: 20, marginBottom: 24 }}>
+            <div style={{ width: 120, height: 120, borderRadius: 16, overflow: 'hidden', flexShrink: 0, background: C.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {branch.images?.[0] ? <img src={branch.images[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name="store" size={36} color={C.accent} />}
+            </div>
+            <div>
+              <h2 style={{ margin: '0 0 6px', fontSize: 24, fontFamily: 'Fraunces', color: C.text }}>{branch.name}</h2>
+              <p style={{ margin: '0 0 4px', fontSize: 14, color: C.textMuted }}>{branch.location}</p>
+              <p style={{ margin: '0 0 4px', fontSize: 13, color: C.textMuted }}>{branch.phone} • {branch.email}</p>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}><span style={{ color: C.gold }}>{stars(branch.rating || 0)}</span><span style={{ fontSize: 13, color: C.textMuted }}>{branch.rating} ({branch.review_count} reviews)</span></div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+            <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Hours</div><div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{fmtTime(branch.open_time)} – {fmtTime(branch.close_time)}</div></div>
+            <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Default Deposit</div><div style={{ fontSize: 15, fontWeight: 600, color: C.gold }}>K{branch.default_deposit ?? 100}</div></div>
+            <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Status</div><div style={{ display: 'flex', gap: 8 }}><span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: branch.is_active ? C.successBg : C.dangerBg, color: branch.is_active ? C.success : C.danger }}>{branch.is_active ? 'Active' : 'Inactive'}</span><span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: C.pendingBg, color: C.pending }}>{branch.approval_status}</span></div></div>
+            <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Cancellation</div><div style={{ fontSize: 13, color: C.text }}>Free within {branch.cancellation_hours ?? 2}h • Late: {branch.cancellation_fee_percent ?? 0}% • No-show: {branch.no_show_fee_percent ?? 50}%</div></div>
+          </div>
+          {branch.description && <div style={{ marginBottom: 20 }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>About</div><p style={{ margin: 0, fontSize: 14, color: C.text, lineHeight: 1.5 }}>{branch.description}</p></div>}
+          {branch.images?.length > 0 && <div style={{ marginBottom: 20 }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Gallery</div><div style={{ display: 'flex', gap: 10, overflowX: 'auto' }}>{branch.images.map((img, i) => <img key={i} src={img} alt="" style={{ width: 160, height: 110, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />)}</div></div>}
+          <Btn onClick={() => setModal({ type: 'editProfile' })}>Edit Branch Profile</Btn>
+        </Card>
+
+        {/* Booking Link */}
+        <Card title="Your Booking Link" style={{ marginTop: 20 }}>
+          <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>Share this link on WhatsApp, Instagram, Facebook — clients can book directly from it.</p>
+          {(() => {
+            const slug = branch.booking_slug;
+            const domain = window.location.hostname.replace(/^studio\./,'');
+            const link = slug ? `https://${domain}/${slug}` : null;
+            return slug ? (
+              <div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                  <div style={{ flex: 1, padding: '12px 14px', borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, fontSize: 14, fontWeight: 600, color: C.accent, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{link}</div>
+                  <Btn variant="primary" onClick={() => { navigator.clipboard.writeText(link); showToast('Link copied!') }} style={{ flexShrink: 0 }}>Copy Link</Btn>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Btn variant="ghost" onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`Book your appointment at ${branch.name}! 💇‍♀️\n${link}`)}`, '_blank')} style={{ fontSize: 12 }}>📱 Share on WhatsApp</Btn>
+                  <Btn variant="ghost" onClick={() => navigator.clipboard.writeText(`Book your appointment at ${branch.name}! 💇‍♀️\n${link}`).then(() => showToast('Caption + link copied!'))} style={{ fontSize: 12 }}>📋 Copy with Caption</Btn>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 12 }}>Set a custom URL slug for your studio booking page.</p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ fontSize: 14, color: C.textMuted, padding: '8px 0', whiteSpace: 'nowrap' }}>luminbook.app/</div>
+                  <input id="slug-input" placeholder="e.g. glowandgrace" maxLength={40} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }} defaultValue={branch.name ? branch.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-+$/,'') : ''} />
+                  <Btn variant="primary" onClick={async () => {
+                    const v = document.getElementById('slug-input').value.toLowerCase().replace(/[^a-z0-9-]/g,'').replace(/-+/g,'-').replace(/^-|-$/g,'');
+                    if(!v || v.length < 3) return showToast('Slug must be at least 3 characters', 'error');
+                    const { error } = await supabase.from('branches').update({ booking_slug: v }).eq('id', branch.id);
+                    if(error) { showToast(error.message.includes('unique') ? 'That slug is taken — try another' : friendlyError(error.message), 'error'); }
+                    else { setBranch(prev => ({ ...prev, booking_slug: v })); showToast('Booking link saved!'); }
+                  }}>Save</Btn>
+                </div>
+              </div>
+            );
+          })()}
+        </Card>
+        <Card title="SMS Notifications" style={{ marginTop: 20 }}>
+          <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>Send automatic SMS to clients when bookings are confirmed, cancelled, or as reminders.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <div onClick={() => updateBranch({ sms_enabled: !branch.sms_enabled })} style={{ width: 44, height: 24, borderRadius: 12, background: branch.sms_enabled ? C.accent : C.border, position: 'relative', cursor: 'pointer', transition: 'background 0.2s' }}>
+                <div style={{ width: 20, height: 20, borderRadius: 10, background: '#fff', position: 'absolute', top: 2, left: branch.sms_enabled ? 22 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px #00000020' }} />
+              </div>
+              <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{branch.sms_enabled ? 'SMS Enabled' : 'SMS Disabled'}</span>
+            </label>
+          </div>
+          {branch.sms_enabled && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Sender Name</label>
+                <input value={branch.sms_sender_name || 'LuminBook'} onChange={e => updateBranch({ sms_sender_name: e.target.value })} placeholder="LuminBook" maxLength={11} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }} />
+                <span style={{ fontSize: 10, color: C.textLight }}>Max 11 chars, alphanumeric</span>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Reminder Hours Before</label>
+                <input type="number" value={branch.sms_reminder_hours || 24} onChange={e => updateBranch({ sms_reminder_hours: parseInt(e.target.value) || 24 })} min={1} max={72} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', color: C.text }} />
+              </div>
+            </div>
+          )}
+          {branch.sms_enabled && (
+            <div style={{ marginTop: 16, padding: 12, borderRadius: 8, background: C.bg }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>SMS will be sent for:</div>
+              <div style={{ fontSize: 13, color: C.text, lineHeight: 2.2 }}>
+                <span style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}><Check size={13} color={C.success}/> Booking confirmed</span>
+                <span style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}><Check size={13} color={C.success}/> Booking cancelled</span>
+                <span style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}><Check size={13} color={C.success}/> 24h appointment reminder</span>
+                <span style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}><Check size={13} color={C.success}/> No-show notification</span>
+                <span style={{ color: C.textMuted }}>Cost: ~K0.17 per SMS (billed via Africa's Talking)</span>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Suggestion Box */}
+        <StudioSuggestionBox branch={branch} showToast={showToast} />
+      </div>
+    )
+  }
+
+  function StudioSuggestionBox({ branch, showToast: toast }) {
+    const [open, setOpen] = useState(false)
+    const [msg, setMsg] = useState('')
+    const [cat, setCat] = useState('general')
+    const [sending, setSending] = useState(false)
+    const [sent, setSent] = useState(false)
+    const cats = ['general', 'feature request', 'bug report', 'complaint', 'compliment']
+    const iSt = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', background: '#fff', color: C.text }
+
+    const submit = async () => {
+      if (!msg.trim()) return
+      setSending(true)
+      const { error } = await supabase.from('suggestions').insert({ source: 'salon', author_name: branch?.name || null, author_email: branch?.owner_email || null, branch_id: branch?.id || null, category: cat, message: msg.trim() })
+      setSending(false)
+      if (error) { toast(error.message, 'error'); return }
+      setSent(true); setMsg('')
+      setTimeout(() => { setSent(false); setOpen(false) }, 2500)
+      toast('Thanks for your feedback!')
+    }
+
+    if (sent) return (
+      <Card style={{ marginTop: 20, textAlign: 'center', padding: '32px 20px' }}>
+        <div style={{ marginBottom: 8 }}><Icon name="check" size={28} color="#2e7d32" /></div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Thank you!</div>
+        <div style={{ fontSize: 13, color: C.textMuted, marginTop: 4 }}>Your suggestion has been submitted to LuminBook</div>
+      </Card>
+    )
+
+    return (
+      <Card title="Suggestion Box" style={{ marginTop: 20 }}>
+        {!open ? (
+          <div>
+            <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 14, lineHeight: 1.5 }}>Have ideas on how to improve LuminBook? We'd love to hear from you.</p>
+            <Btn variant="ghost" onClick={() => setOpen(true)}>Share a Suggestion →</Btn>
+          </div>
+        ) : (
+          <div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 6 }}>Category</label>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {cats.map(c => <button key={c} onClick={() => setCat(c)} style={{ padding: '5px 12px', borderRadius: 20, border: `1.5px solid ${cat === c ? C.accent : C.border}`, background: cat === c ? C.accentLight : 'transparent', color: cat === c ? C.accent : C.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', textTransform: 'capitalize' }}>{c}</button>)}
+              </div>
+            </div>
+            <textarea value={msg} onChange={e => setMsg(e.target.value)} placeholder="Tell us what you'd like to see improved, added, or fixed..." rows={4} style={{ ...iSt, marginBottom: 12, resize: 'vertical', minHeight: 100 }} />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Btn variant="ghost" onClick={() => setOpen(false)}>Cancel</Btn>
+              <Btn onClick={submit} disabled={sending || !msg.trim()}>{sending ? 'Sending...' : 'Submit'}</Btn>
+            </div>
+          </div>
+        )}
+      </Card>
+    )
+  }
+
+  // ═════ MODAL ROUTER ═════
+  function ModalRouter() {
+    if (!modal) return null
+    const { type } = modal
+    if (type === 'cancelBooking') return <CancelModal booking={modal.booking} onCancel={cancelBooking} onClose={() => setModal(null)} />
+    if (type === 'replyReview') return <ReplyModal review={modal.review} clients={clients} onReply={replyReview} onClose={() => setModal(null)} />
+    if (type === 'addStaff') return <StaffModal onSave={saveStaff} onClose={() => setModal(null)} />
+    if (type === 'editStaff') return <StaffModal staffMember={modal.staffMember} onSave={saveStaff} onClose={() => setModal(null)} />
+    if (type === 'editProfile') return <ProfileModal branch={branch} onSave={updateBranch} onClose={() => setModal(null)} />
+    if (type === 'addService') return <ServiceModal branchId={branchId} onSave={saveService} onClose={() => setModal(null)} existingAddons={[]} />
+    if (type === 'editService') return <ServiceModal service={modal.service} branchId={branchId} onSave={saveService} onClose={() => setModal(null)} existingAddons={serviceAddons.filter(a => a.service_id === modal.service?.id)} />
+    if (type === 'blockTime') return <BlockTimeModal staffMember={modal.staffMember} blockedTimes={blockedTimes} onAdd={addBlockedTime} onRemove={removeBlockedTime} onClose={() => setModal(null)} />
+    if (type === 'walkinBooking') {
+      return <WalkinModal services={services} staff={staff} branch={branch} onSave={async (data) => {
+        const { error } = await supabase.from('bookings').insert({
+          branch_id: branch.id, service_id: data.service_id, staff_id: data.staff_id || null,
+          client_id: data.client_id || null, booking_date: todayStr(), booking_time: new Date().toTimeString().slice(0, 5),
+          duration: data.duration || 60, total_amount: data.total_amount || 0,
+          status: 'arrived', is_walk_in: true, walk_in_name: data.walk_in_name || null,
+          client_notes: data.client_notes || null,
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        })
+        if (!error) { showToast('Walk-in booking created! 🚶'); fetchAll(); setModal(null) }
+        else showToast('Error: ' + error.message, 'error')
+      }} clients={clients} onClose={() => setModal(null)} />
+    }
+    if (type === 'viewBooking') {
+      const b = modal.booking, cl = getClient(b.client_id), sv = getService(b.service_id), st = getStaffMember(b.staff_id)
+      return (
+        <Modal title="Booking Details" onClose={() => setModal(null)}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            {[['Date', fmtDate(b.booking_date)], ['Time', fmtTime(b.booking_time)], ['Client', cl?.name || (b.walk_in_name || '—')], ['Service', sv?.name || '—'], ['Staff', st?.name || '—'], ['Duration', `${b.duration} min`], ['Amount', fmt(b.total_amount)], ['Fee', fmt(b.platform_fee)], ['Status', (SC[b.status]?.label || b.status)], ['Deposit', b.deposit_paid ? `Yes — ${fmt(b.deposit_amount || branch?.default_deposit || 100)}` : `Required: K${sv?.deposit_amount || branch?.default_deposit || 100}`], ['Points Used', b.points_used > 0 ? `${b.points_used} pts (-${fmt(b.discount_amount)})` : '—'], ['Type', b.is_walk_in ? 'Walk-in' : 'Online']].map(([l, v]) => <div key={l}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>{l}</div><div style={{ fontSize: 14, fontWeight: 500, color: C.text }}>{v}</div></div>)}
+          </div>
+          {b.client_notes && <div style={{ marginTop: 14, padding: 12, borderRadius: 8, background: C.bg }}><strong style={{ fontSize: 11, color: C.textMuted }}>CLIENT NOTES:</strong><p style={{ margin: '4px 0 0', fontSize: 13 }}>{b.client_notes}</p></div>}
+          {b.cancellation_reason && <div style={{ marginTop: 10, padding: 12, borderRadius: 8, background: '#fce4ec' }}><strong style={{ fontSize: 11, color: '#c62828' }}>CANCELLATION REASON:</strong><p style={{ margin: '4px 0 0', fontSize: 13, color: '#c62828' }}>{b.cancellation_reason}</p></div>}
+          <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            {b.status === 'pending' && <Btn variant="success" onClick={() => { updateBooking(b.id, { status: 'confirmed' }); setModal(null) }}>Confirm</Btn>}
+            {b.status === 'confirmed' && <Btn onClick={() => { updateBooking(b.id, { status: 'arrived' }); setModal(null) }} style={{ background: '#e0f7fa', color: '#00695c', border: '1px solid #00695c' }}>Mark Arrived</Btn>}
+            {b.status === 'arrived' && <Btn onClick={() => { updateBooking(b.id, { status: 'in_progress' }); setModal(null) }} style={{ background: '#f3e5f5', color: '#7b1fa2', border: '1px solid #7b1fa2' }}>Start Service</Btn>}
+            {(b.status === 'arrived' || b.status === 'in_progress') && <Btn variant="success" onClick={() => { updateBooking(b.id, { status: 'completed', completed_at: new Date().toISOString() }); setModal(null) }}>Complete</Btn>}
+            {(b.status === 'confirmed' || b.status === 'pending') && <>
+              <Btn onClick={() => { updateBooking(b.id, { status: 'no_show' }); setModal(null); showToast('Marked as no-show') }} style={{ background: '#fce4ec', color: '#880e4f', border: '1px solid #880e4f' }}>No-show</Btn>
+              <Btn variant="danger" onClick={() => { setModal({ type: 'cancelBooking', booking: b }) }}>Cancel</Btn>
+            </>}
+            {!b.deposit_paid && !['cancelled','no_show'].includes(b.status) && <Btn onClick={() => { updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: b.deposit_amount || branch?.default_deposit || 100 }); setModal(null); showToast('Deposit marked as paid') }} style={{ background: C.bg, color: C.gold, border: `1px solid ${C.gold}` }}>Mark Deposit Paid</Btn>}
+            {b.status === 'completed' && branch?.sms_enabled && <Btn onClick={() => { sendReviewRequest(b.id); setModal(null) }} style={{ background: C.bg, color: C.accent, border: `1px solid ${C.accent}` }}><Phone size={14} color={C.accent}/> Request Review SMS</Btn>}
+          </div>
+        </Modal>
+      )
+    }
+    if (type === 'viewClient') {
+      const c = modal.client, cb = bookings.filter(b => b.client_id === c.id)
+      return (
+        <Modal title="Client Details" onClose={() => setModal(null)} wide>
+          <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
+            <div style={{ width: 60, height: 60, borderRadius: '50%', background: C.roseLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.rose, fontSize: 22 }}>{c.name[0]}</div>
+            <div><h3 style={{ margin: '0 0 4px', fontSize: 18, fontFamily: 'Fraunces', color: C.text }}>{c.name}</h3><div style={{ fontSize: 13, color: C.textMuted }}>{c.phone} • {c.email}</div><div style={{ display: 'flex', gap: 12, marginTop: 8 }}><span style={{ fontSize: 12, fontWeight: 600, color: C.gold }}>✦ {c.lumin_points || 0} LuminPoints</span><span style={{ fontSize: 12, color: C.textMuted }}>Spent: {fmt(c.total_spent || 0)}</span></div></div>
+          </div>
+          <h4 style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Booking History</h4>
+          {cb.length === 0 ? <p style={{ fontSize: 13, color: C.textMuted }}>No bookings at your branch.</p> : cb.slice(0, 8).map(b => {
+            const sv = getService(b.service_id)
+            return <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${C.border}` }}><div><span style={{ fontWeight: 600, fontSize: 13 }}>{sv?.name || 'Service'}</span><span style={{ fontSize: 12, color: C.textMuted, marginLeft: 8 }}>{fmtDate(b.booking_date)}</span></div><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><span style={{ fontWeight: 600, fontSize: 13 }}>{fmt(b.total_amount)}</span><Badge status={b.status} /></div></div>
+          })}
+        </Modal>
+      )
+    }
+    return null
+  }
+
+  // ═════ WALLET ═════
+  function WalletView() {
+    const [walletData, setWalletData] = useState(null)
+    const [walletLoading, setWalletLoading] = useState(true)
+    const [withdrawForm, setWithdrawForm] = useState({ amount: '', phone: '', name: '', network: 'mtn' })
+    const [withdrawing, setWithdrawing] = useState(false)
+    const [showWithdraw, setShowWithdraw] = useState(false)
+
+    const SUPABASE_URL = supabase.supabaseUrl
+
+    const loadWallet = useCallback(async () => {
+      if (!branch?.id) return
+      setWalletLoading(true)
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const apiKey = supabase.supabaseKey || '';
-        const res = await fetch(SUPABASE_URL + '/functions/v1/process-payment', {
+        const { data: { session } } = await supabase.auth.getSession()
+        const apiKey = supabase.supabaseKey || ''
+        const res = await fetch(SUPABASE_URL + '/functions/v1/wallet', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session?.access_token || ''), 'apikey': apiKey },
-          body: JSON.stringify({
-            action: 'initiate',
-            branch_id: flow.branch.id,
-            amount: deposit,
-            payer_phone: payerPhone,
-            payment_type: 'booking_deposit',
-            booking_intent: {
-              branch_id: flow.branch.id,
-              service_id: svc.id,
-              staff_id: flow.staff?.id || null,
-              booking_date: flow.date,
-              booking_time: flow.time,
-              duration: svc.duration_max || svc.duration || 60,
-              total_amount: parseFloat(svc.price) || 0,
-              client_notes: flow.clientNotes || null,
-              recurring: flow.recurring || false,
-              recurring_type: flow.recurringType || null,
-              recurring_until: flow.recurringUntil || null
-            }
-          })
-        });
-        const data = await res.json();
+          body: JSON.stringify({ action: 'get_wallet', branch_id: branch.id })
+        })
+        const data = await res.json()
+        if (data.success) setWalletData(data)
+      } catch (e) { console.error('Wallet load error:', e) }
+      setWalletLoading(false)
+    }, [branch?.id])
 
-        if (data.error || !data.success) {
-          isProcessingPayment.current = false;
-          // Detect duplicate/pending payment
-          const errMsg = (data.error || '').toLowerCase();
-          if (errMsg.includes('recently initiated') || errMsg.includes('pending') || errMsg.includes('duplicate')) {
-            setPaymentState({ 
-              step: 'failed', 
-              message: 'You already have a payment in progress. Wait for it to complete, or cancel it and try again.',
-              isDuplicate: true,
-              existingPaymentId: data.payment_id || null
-            });
-          } else {
-            setPaymentState({ step: 'failed', message: friendlyError(data.error) || 'Couldn\'t start the payment. Please try again.' });
-          }
-          return;
-        }
+    useEffect(() => { loadWallet() }, [loadWallet])
 
-        // Payment initiated — now poll for verification
-        setPaymentState({ step: 'waiting', message: 'Approve the payment on your phone...', paymentId: data.payment_id });
-
-        const paymentId = data.payment_id;
-        let attempts = 0;
-        const maxAttempts = 24; // 2 minutes (5s intervals)
-
-        const pollVerify = async () => {
-          if (paymentPollAbort.current) return; // User cancelled
-          attempts++;
-          setPaymentState(ps => ({ ...ps, step: 'verifying', message: `Checking payment... (${attempts}/${maxAttempts})` }));
-
-          try {
-            const vRes = await fetch(SUPABASE_URL + '/functions/v1/process-payment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session?.access_token || ''), 'apikey': apiKey },
-              body: JSON.stringify({ action: 'verify', payment_id: paymentId })
-            });
-            const vData = await vRes.json();
-
-            if (vData.status === 'successful') {
-              setPaymentState({ step: 'success', message: 'Payment received! Creating booking...' });
-
-              // Server creates the booking from booking_intent now
-              // Only create client-side as a fallback if server didn't
-              if (!vData.booking_created && !vData.booking_id) {
-                await createBookingRecords(flow, svc, paymentId, deposit);
-              } else {
-                // Server already created the booking — just refresh and navigate
-                isProcessingPayment.current = false;
-                showToastFn('Booking confirmed! 🎉');
-                fetchMyData();
-                setBookingFlow(null);
-                setPage('bookings');
-                setPaymentState(null);
-              }
-              return;
-            }
-
-            if (vData.status === 'failed') {
-              isProcessingPayment.current = false;
-              setPaymentState({ step: 'failed', message: vData.message || 'Payment was not approved. Please try again.' });
-              return;
-            }
-
-            // Still pending
-            if (attempts >= maxAttempts) {
-              isProcessingPayment.current = false;
-              setPaymentState({ step: 'failed', message: 'Payment timed out. No money was deducted — you can safely try again. If you were charged, please contact support.' });
-              return;
-            }
-
-            // Continue polling
-            setPaymentState(ps => ({ ...ps, step: 'waiting', message: 'Approve the payment on your phone...' }));
-            setTimeout(pollVerify, 5000);
-          } catch (e) {
-            isProcessingPayment.current = false;
-            setPaymentState({ step: 'failed', message: 'Couldn\'t verify your payment. Please check your mobile money balance and try again.' });
-          }
-        };
-
-        // Start polling after 5 seconds
-        setTimeout(pollVerify, 5000);
-
-      } catch (e) {
-        isProcessingPayment.current = false;
-        setPaymentState({ step: 'failed', message: e.message?.includes('fetch') || e.message?.includes('network') ? 'Connection error. Check your internet and try again.' : 'Something went wrong. Please try again.' });
-      }
-    } else {
-      // No deposit — create booking directly
-      await createBookingRecords(flow, svc, null, 0);
-      isProcessingPayment.current = false;
+    const requestWithdraw = async () => {
+      if (!withdrawForm.amount || !withdrawForm.phone) return
+      setWithdrawing(true)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const apiKey = supabase.supabaseKey || ''
+        const res = await fetch(SUPABASE_URL + '/functions/v1/wallet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session?.access_token || ''), 'apikey': apiKey },
+          body: JSON.stringify({ action: 'request', branch_id: branch.id, amount: parseFloat(withdrawForm.amount), withdraw_to_phone: withdrawForm.phone, withdraw_to_name: withdrawForm.name, network: withdrawForm.network })
+        })
+        const data = await res.json()
+        if (data.error) { showToast(data.error, 'error') }
+        else { showToast('Withdrawal request submitted! You will be paid manually within 24h.'); setShowWithdraw(false); setWithdrawForm({ amount: '', phone: '', name: '', network: 'mtn' }); loadWallet() }
+      } catch (e) { showToast('Failed: ' + e.message, 'error') }
+      setWithdrawing(false)
     }
-  };
 
-  const createBookingRecords = async (flow, svc, paymentId, depositAmount) => {
-    const baseData = {
-      branch_id: flow.branch.id, client_id: client.id, service_id: svc.id,
-      staff_id: flow.staff?.id || null, booking_date: flow.date, booking_time: flow.time,
-      duration: svc.duration_max || svc.duration || 60, total_amount: parseFloat(svc.price) || 0,
-      deposit_amount: depositAmount || 0, deposit_paid: depositAmount > 0, deposit_paid_at: depositAmount > 0 ? new Date().toISOString() : null,
-      payment_id: paymentId || null, payment_status: depositAmount > 0 ? 'paid' : 'unpaid',
-      client_notes: flow.clientNotes || null, status: depositAmount > 0 ? 'confirmed' : 'pending',
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString()
-    };
+    if (walletLoading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: C.textMuted }}><div style={{ textAlign: 'center' }}><Icon name="refresh" size={32} color={C.textMuted} /><div style={{ fontSize: 14, marginTop: 8 }}>Loading wallet...</div></div></div>
 
-    if (flow.recurring && flow.recurringType) {
-      const rid = crypto.randomUUID();
-      const weeks = flow.recurringType === 'weekly' ? 1 : flow.recurringType === 'biweekly' ? 2 : 4;
-      const until = flow.recurringUntil || new Date(new Date(flow.date).getTime() + weeks * 4 * 7 * 86400000).toISOString().slice(0, 10);
-      const allDates = []; let d = new Date(flow.date);
-      while (d.toISOString().slice(0, 10) <= until) { allDates.push(d.toISOString().slice(0, 10)); d = new Date(d.getTime() + weeks * 7 * 86400000); }
-      const { data: existing } = await supabase.from('bookings').select('booking_date,booking_time').eq('branch_id', flow.branch.id).eq('booking_time', flow.time).in('booking_date', allDates).neq('status', 'cancelled');
-      const conflictDates = new Set((existing || []).map(b => b.booking_date));
-      const bks = allDates.filter(dt => !conflictDates.has(dt)).map((dt, i) => ({
-        ...baseData, booking_date: dt, recurring_id: rid, recurring_type: flow.recurringType, recurring_until: until,
-        // Only first booking has the deposit payment
-        deposit_paid: i === 0 ? baseData.deposit_paid : false,
-        deposit_paid_at: i === 0 ? baseData.deposit_paid_at : null,
-        payment_id: i === 0 ? baseData.payment_id : null,
-        payment_status: i === 0 ? baseData.payment_status : 'unpaid',
-        status: i === 0 ? baseData.status : 'pending'
-      }));
-      if (!bks.length) { isProcessingPayment.current=false; showToastFn('All recurring dates are already booked', 'error'); setPaymentState(null); return; }
-      const skipped = allDates.length - bks.length;
-      const { error } = await supabase.from('bookings').insert(bks);
-      isProcessingPayment.current = false;
-      if (!error) { showToastFn(`${bks.length} bookings created!${skipped ? ' (' + skipped + ' skipped — conflicts)' : ''}!`); fetchMyData(); setBookingFlow(null); setPage('bookings'); }
-      else showToastFn('Couldn\'t create bookings. Please try again.', 'error');
-    } else {
-      const { data: newBooking, error } = await supabase.from('bookings').insert(baseData).select('id').single();
-      if (!error && newBooking) {
-        // Link payment to booking
-        if (paymentId) await supabase.from('payments').update({ booking_id: newBooking.id }).eq('id', paymentId);
-        isProcessingPayment.current = false;
-        showToastFn('Booking confirmed! 🎉'); fetchMyData(); setBookingFlow(null); setPage('bookings');
-      }
-      else { isProcessingPayment.current = false; showToastFn('Couldn\'t create your booking. Please try again.', 'error'); }
-    }
-    setPaymentState(null);
-  };
+    const w = walletData?.wallet
+    const txns = walletData?.transactions || []
+    const wds = walletData?.withdrawals || []
+    const bal = parseFloat(w?.balance || 0)
+    const earned = parseFloat(w?.total_earned || 0)
+    const withdrawn = parseFloat(w?.total_withdrawn || 0)
+    const feesPaid = parseFloat(w?.total_fees_paid || 0)
 
-  const cancelPayment = async () => {
-    paymentPollAbort.current = true; // Stop polling immediately
-    const paymentId = paymentState?.paymentId;
-    if (!paymentId) {
-      // No payment ID — just clear the state
-      isProcessingPayment.current = false;
-      setPaymentState(null);
-      return;
-    }
-    setPaymentState(ps => ({ ...ps, step: 'cancelling', message: 'Cancelling payment...' }));
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const apiKey = supabase.supabaseKey || '';
-      const res = await fetch(SUPABASE_URL + '/functions/v1/process-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session?.access_token || ''), 'apikey': apiKey },
-        body: JSON.stringify({ action: 'cancel', payment_id: paymentId })
-      });
-      const data = await res.json();
-      if (data.error && !data.success) {
-        console.warn('Cancel payment error:', data.error);
-      }
-    } catch (e) {
-      console.warn('Cancel payment fetch error:', e.message);
-    }
-    isProcessingPayment.current = false;
-    setPaymentState(null);
-  };
+    return (
+      <div>
+        {/* Balance Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+          {[
+            { l: 'Available Balance', v: fmt(bal), c: C.success, icon: 'dollar' },
+            { l: 'Total Earned', v: fmt(earned), c: C.accent, icon: 'trendUp' },
+            { l: 'Total Withdrawn', v: fmt(withdrawn), c: C.gold, icon: '💸' },
+            { l: 'Platform Fees Paid', v: fmt(feesPaid), c: C.textMuted, icon: '🏷️' },
+          ].map((s, i) => (
+            <Card key={i}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 24 }}>{s.icon}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8 }}>{s.l}</span>
+              </div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: s.c, fontFamily: 'Fraunces' }}>{s.v}</div>
+            </Card>
+          ))}
+        </div>
 
-  const rescheduleBooking = (bk) => {
-    const svc=getService(bk.service_id);const br=getBranch(bk.branch_id);const stf=getStaffMember(bk.staff_id);
-    setBookingFlow({step:2,branch:br,service:svc,staff:stf||{id:null,name:'Any Available'},date:null,time:null,rescheduleId:bk.id});
-    setPage('booking');
-  };
-
-  // Auth gate
-  if(!authChecked) return(<div style={{minHeight:'100vh',background:BG,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{css}</style><div style={{display:'flex',gap:6}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:4,background:ACCENT,animation:`pulse 1.2s ease ${i*.2}s infinite`}}/>)}</div></div>);
-  if(!authUser) return <AuthScreen onAuth={u=>setAuthUser(u)}/>;
-  if(loading) return(<div style={{minHeight:'100vh',background:BG}}><style>{css}</style><div style={{maxWidth:600,margin:'0 auto',padding:'24px 16px'}}>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:28}}><Skeleton w={120} h={24}/><Skeleton w={36} h={36} r={18}/></div>
-    <Skeleton w="70%" h={20} style={{marginBottom:10}}/><Skeleton w="50%" h={14} style={{marginBottom:28}}/>
-    <div style={{display:'flex',gap:10,marginBottom:24}}>{[0,1,2,3].map(i=><Skeleton key={i} w={80} h={34} r={20}/>)}</div>
-    {[0,1,2].map(i=><div key={i} style={{background:CARD,borderRadius:18,border:`1px solid ${BORDER}`,padding:16,marginBottom:12,display:'flex',gap:14,alignItems:'center'}}>
-      <Skeleton w={56} h={56} r={14}/><div style={{flex:1}}><Skeleton w="60%" h={16} style={{marginBottom:8}}/><Skeleton w="40%" h={12} style={{marginBottom:6}}/><Skeleton w="30%" h={12}/></div>
-    </div>)}
-  </div></div>);
-
-  const pages = {
-    home: <HomePage {...{branches,services,reviews,staff,branchAvgRating,branchReviews,categories,selectedCategory,setSelectedCategory,searchQuery,setSearchQuery,navigate,favorites,toggleFav,reminders,getService,getBranch,bp,onServiceCompare,bookings}}/>,
-    explore: <ExplorePage {...{branches,services,reviews,branchAvgRating,branchReviews,navigate,searchQuery,setSearchQuery,selectedCategory,setSelectedCategory,categories,favorites,toggleFav,bp,onServiceCompare}}/>,
-    salon: <SalonPage {...{branch:selectedBranch,services:services.filter(s=>s.branch_id===selectedBranch?.id),reviews:branchReviews(selectedBranch?.id),staff:branchStaff(selectedBranch?.id),branchAvgRating,navigate,goBack,favorites,toggleFav,client,bp,allServices:services,allBranches:branches,onServiceCompare,onReview,clientBookings,reviewedIds}}/>,
-    booking: <BookingFlow {...{flow:{...bookingFlow,clientId:client?.id},setBookingFlow,staff:branchStaff(bookingFlow?.branch?.id),services:services.filter(s=>s.branch_id===bookingFlow?.branch?.id),createBooking,goBack,bp,client,paymentState,setPaymentState,cancelPayment}}/>,
-    bookings: <MyBookingsPage {...{upcoming:upcomingBookings,past:pastBookings,getService,getStaffMember,getBranch,cancelBooking,rescheduleBooking,navigate,bp,onReview,reviewedIds}}/>,
-    profile: <ProfilePage {...{client,clientBookings,branches,favorites,getBranch,navigate,showToast:showToastFn,authUser,handleLogout,bp,onReview,reviewedIds,getService,refreshClient:fetchMyData}}/>,
-  };
-
-  return(
-    <>
-      <style>{css}</style>
-      {showResetPassword&&<div style={{position:'fixed',inset:0,zIndex:3000,background:'rgba(0,0,0,.5)',backdropFilter:'blur(8px)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-        <ResetPasswordForm onDone={()=>setShowResetPassword(false)}/>
-      </div>}
-      {isOffline&&<div role="alert" style={{position:'fixed',top:0,left:0,right:0,zIndex:2100,background:'#c62828',color:'#fff',textAlign:'center',padding:'8px 16px',fontSize:13,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="xCircle" size={14} color="#fff"/>You're offline — check your connection</div>}
-      <AppShell page={page} setPage={pg=>{setNavHistory([]);setPage(pg)}} client={client} unreadCount={unreadCount} onNotifClick={()=>setShowNotifs(true)} onLogout={handleLogout} bp={bp}>
-        <div key={page} className="page-in" role="main">{pages[page]||pages.home}</div>
-      </AppShell>
-      <div aria-live="polite" aria-atomic="true">{toast&&<Toast message={toast.msg} type={toast.type}/>}</div>
-      <BottomSheet open={showNotifs} onClose={()=>{setShowNotifs(false);markAllRead()}} title="Notifications">
-        {notifications.length>0?(
-          <div style={{maxHeight:400,overflowY:'auto'}}>
-            {notifications.slice(0,20).map(n=>(
-              <div key={n.id} style={{padding:'12px 0',borderBottom:`1px solid ${BORDER}`,opacity:n.read?0.6:1}}>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-                  <span style={{fontSize:14}}>{n.type==='success'?<Icon name="check" size={14} color="#2e7d32"/>:n.type==='error'?<Icon name="close" size={14} color="#c62828"/>:<Icon name="bell" size={14} color={ACCENT}/>}</span>
-                  <span style={{fontSize:14,fontWeight:600,flex:1}}>{n.title}</span>
-                  {!n.read&&<span style={{width:8,height:8,borderRadius:4,background:ACCENT}}/>}
+        {/* Request Withdrawal */}
+        <Card style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.text }}>Withdraw Funds</h3>
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: C.textMuted }}>Request a manual payout to your mobile money account</p>
+            </div>
+            <Btn small variant="primary" disabled={bal < 1} onClick={() => setShowWithdraw(!showWithdraw)}>{showWithdraw ? 'Cancel' : 'Request Withdrawal'}</Btn>
+          </div>
+          {showWithdraw && (
+            <div style={{ marginTop: 20, padding: 20, background: C.bg, borderRadius: 12 }}>
+              <div style={{ padding: '10px 14px', background: '#fff8e1', borderRadius: 8, marginBottom: 14, border: '1px solid #ffe082', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <span style={{ fontSize: 14, flexShrink: 0 }}>ℹ️</span>
+                <span style={{ fontSize: 12, color: '#6d5600', lineHeight: 1.5 }}>Payouts are processed manually. After submitting, you will receive the funds to your mobile money within 24 hours. You'll see the status update once payment is confirmed.</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Amount (K)</label>
+                  <input value={withdrawForm.amount} onChange={e => setWithdrawForm(f => ({ ...f, amount: e.target.value }))} type="number" max={bal} placeholder={`Max: ${bal.toFixed(2)}`} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, background: C.white, fontFamily: 'DM Sans' }} />
                 </div>
-                <p style={{fontSize:13,color:MUTED,lineHeight:1.4,marginLeft:26}}>{n.body}</p>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Phone Number</label>
+                  <input value={withdrawForm.phone} onChange={e => setWithdrawForm(f => ({ ...f, phone: e.target.value }))} placeholder="0971234567" style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, background: C.white, fontFamily: 'DM Sans' }} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Recipient Name</label>
+                  <input value={withdrawForm.name} onChange={e => setWithdrawForm(f => ({ ...f, name: e.target.value }))} placeholder="Name on account" style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, background: C.white, fontFamily: 'DM Sans' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Network</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {['mtn', 'airtel', 'zamtel'].map(n => (
+                      <button key={n} onClick={() => setWithdrawForm(f => ({ ...f, network: n }))} style={{ flex: 1, padding: '10px 8px', borderRadius: 8, border: withdrawForm.network === n ? `2px solid ${C.accent}` : `1.5px solid ${C.border}`, background: withdrawForm.network === n ? C.accentLight : C.white, color: withdrawForm.network === n ? C.accent : C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', textTransform: 'uppercase' }}>{n}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <Btn small variant="primary" disabled={!withdrawForm.amount || !withdrawForm.phone || withdrawing || parseFloat(withdrawForm.amount) > bal} onClick={requestWithdraw}>{withdrawing ? 'Submitting...' : `Request K${withdrawForm.amount || '0'} Payout`}</Btn>
+                <Btn small variant="ghost" onClick={() => setShowWithdraw(false)}>Cancel</Btn>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Pending Payouts — Status View (read-only for studio owners) */}
+        {wds.filter(w => w.status === 'pending' || w.status === 'processing').length > 0 && (
+          <Card style={{ marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <span style={{ fontSize: 20 }}>⏳</span>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.text }}>Pending Payouts</h3>
+            </div>
+            <p style={{ margin: '0 0 16px', fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>
+              Your withdrawal is being processed by the LuminBook team. You'll receive the funds to your mobile money within 24 hours.
+            </p>
+            {wds.filter(w => w.status === 'pending' || w.status === 'processing').map(wd => (
+              <div key={wd.id} style={{ padding: 16, background: C.bg, borderRadius: 12, marginBottom: 10, border: `1.5px solid ${C.border}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: C.text, fontFamily: 'Fraunces', marginBottom: 4 }}>{fmt(wd.amount)}</div>
+                    <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}><Phone size={13} color={C.textMuted}/> <strong>{wd.withdraw_to_phone}</strong> ({(wd.network || 'mobile').toUpperCase()})</div>
+                    {wd.withdraw_to_name && <div style={{ fontSize: 12, color: C.textMuted }}>{wd.withdraw_to_name}</div>}
+                    <div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>Requested {new Date(wd.created_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '6px 14px', borderRadius: 20, background: '#fff3e0', color: '#e65100', textTransform: 'uppercase' }}>⏳ Awaiting Payment</span>
+                </div>
               </div>
             ))}
-          </div>
-        ):<EmptyState icon="bell" title="No notifications" sub="You're all caught up!"/>}
-      </BottomSheet>
-      {/* Review Modal */}
-      <BottomSheet open={!!reviewModal} onClose={()=>setReviewModal(null)} title="Write a Review">
-        {reviewModal&&(()=>{
-          const br=getBranch(reviewModal.branch_id);const svc=getService(reviewModal.service_id);
-          return(<>
-            <div style={{background:`${ACCENT}08`,borderRadius:12,padding:12,marginBottom:16,display:'flex',gap:10,alignItems:'center'}}>
-              <div style={{width:40,height:40,borderRadius:10,background:`linear-gradient(135deg,${ACCENT}30,${ROSE}30)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>✂</div>
-              <div><div style={{fontSize:14,fontWeight:700}}>{br?.name||'Studio'}</div><div style={{fontSize:12,color:MUTED}}>{svc?.name||'Service'} · {reviewModal.booking_date}</div></div>
+          </Card>
+        )}
+
+        {/* Wallet Transactions */}
+        <Card title="Wallet Transactions">
+          {txns.length === 0 ? <Empty icon="dollar" msg="No transactions yet" /> : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 500 }}>
+                <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Date', 'Type', 'Amount', 'Balance', 'Description'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
+                <tbody>{txns.map(t => (
+                  <tr key={t.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td style={{ padding: '10px 8px', fontSize: 12 }}>{new Date(t.created_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+                    <td style={{ padding: '10px 8px' }}><span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 10, background: t.type === 'credit' ? C.successBg : t.type === 'withdrawal' ? '#fff3e0' : C.dangerBg, color: t.type === 'credit' ? C.success : t.type === 'withdrawal' ? '#e65100' : C.danger, textTransform: 'uppercase' }}>{t.type}</span></td>
+                    <td style={{ padding: '10px 8px', fontWeight: 700, color: t.type === 'credit' ? C.success : C.danger }}>{t.type === 'credit' ? '+' : '-'}{fmt(t.amount)}</td>
+                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>{fmt(t.balance_after)}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 12, color: C.textMuted, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description || '—'}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
             </div>
-            <div style={{marginBottom:16}}>
-              <div style={{fontSize:13,fontWeight:600,color:DARK,marginBottom:10}}>How was your experience?</div>
-              <div style={{display:'flex',justifyContent:'center',gap:8,marginBottom:6}}>
-                {[1,2,3,4,5].map(s=><span key={s} onClick={()=>setReviewForm(p=>({...p,rating:s}))} className="star-btn" style={{color:s<=reviewForm.rating?'#F59E0B':BORDER,transition:'transform .12s cubic-bezier(.34,1.56,.64,1)',transform:s<=reviewForm.rating?'scale(1.1)':'scale(1)'}}><Star size={34} fill={s<=reviewForm.rating?'#F59E0B':'none'} stroke={s<=reviewForm.rating?'#F59E0B':'#ccc'} strokeWidth={1.5}/></span>)}
-              </div>
-              <div style={{textAlign:'center',fontSize:13,color:MUTED,fontWeight:500}}>{['','Poor','Fair','Good','Great','Amazing'][reviewForm.rating]}</div>
+          )}
+        </Card>
+
+        {/* Payout History */}
+        {wds.length > 0 && (
+          <Card title="Payout History" style={{ marginTop: 20 }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 500 }}>
+                <thead><tr style={{ borderBottom: `2px solid ${C.border}` }}>{['Date', 'Amount', 'To', 'Network', 'Status'].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
+                <tbody>{wds.map(wd => (
+                  <tr key={wd.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td style={{ padding: '10px 8px', fontSize: 12 }}>{new Date(wd.created_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                    <td style={{ padding: '10px 8px', fontWeight: 700 }}>{fmt(wd.amount)}</td>
+                    <td style={{ padding: '10px 8px' }}>{wd.withdraw_to_phone}</td>
+                    <td style={{ padding: '10px 8px', textTransform: 'uppercase', fontSize: 12, fontWeight: 600 }}>{wd.network || '—'}</td>
+                    <td style={{ padding: '10px 8px' }}><span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 10, background: wd.status === 'completed' ? C.successBg : wd.status === 'failed' || wd.status === 'rejected' ? C.dangerBg : C.pendingBg, color: wd.status === 'completed' ? C.success : wd.status === 'failed' || wd.status === 'rejected' ? C.danger : C.pending, textTransform: 'uppercase' }}>{wd.status === 'completed' ? 'Paid ✓' : wd.status}</span></td>
+                  </tr>
+                ))}</tbody>
+              </table>
             </div>
-            <textarea value={reviewForm.text} onChange={e=>setReviewForm(p=>({...p,text:e.target.value}))} placeholder="Tell us about your experience (optional but earns +5 bonus points)..." rows={4} style={{width:'100%',padding:'12px 14px',borderRadius:12,border:`1.5px solid ${BORDER}`,fontSize:14,background:BG,color:DARK,marginBottom:6,resize:'vertical',minHeight:100}}/>
-            <p style={{fontSize:11,color:MUTED,marginBottom:14}}>Earn 5 pts (+5 bonus for detailed reviews)</p>
-            <Btn full variant="primary" disabled={reviewSubmitting} onClick={submitReview}>{reviewSubmitting?'Submitting...':'Submit Review'}</Btn>
-          </>);
-        })()}
-      </BottomSheet>
-      {/* Service Compare Modal */}
-      <BottomSheet open={!!serviceCompare} onClose={()=>setServiceCompare(null)} title={serviceCompare?`${serviceCompare.name} — Compare`:'Compare'}>
-        {serviceCompare&&(()=>{
-          const thisBranch=branches.find(b=>b.id===serviceCompare.branch_id);
-          const others=services.filter(s=>s.name.toLowerCase()===serviceCompare.name.toLowerCase()&&s.id!==serviceCompare.id);
-          const allMatches=[serviceCompare,...others];
-          return(<>
-            <div style={{fontSize:13,color:MUTED,marginBottom:14}}>{allMatches.length} studio{allMatches.length!==1?'s':''} offer{allMatches.length===1?'s':''} this service</div>
-            <div style={{display:'grid',gap:10}}>
-              {allMatches.map(s=>{const br=branches.find(b=>b.id===s.branch_id);const avg=branchAvgRating(s.branch_id);return(
-                <div key={s.id} style={{background:CARD,borderRadius:16,padding:14,border:`1px solid ${BORDER}`,display:'flex',gap:12,alignItems:'center'}}>
-                  {s.images?.[0]?<img src={s.images[0]} alt="" style={{width:56,height:56,borderRadius:12,objectFit:'cover',flexShrink:0}}/>:<div style={{width:56,height:56,borderRadius:12,background:`linear-gradient(135deg,${ACCENT}30,${ROSE}30)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>✂</div>}
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:14,fontWeight:700}}>{br?.name||'Studio'}</div>
-                    <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:MUTED,marginTop:2}}>
-                      <span style={{display:'flex',alignItems:'center',gap:2}}><Icon name="star" size={11} color={GOLD}/>{avg}</span>
-                      <span>•</span>
-                      <span>{s.duration}{s.duration_max&&s.duration_max!==s.duration?`–${s.duration_max}`:''} min</span>
-                    </div>
-                    <div style={{fontSize:16,fontWeight:700,color:ACCENT,marginTop:4}}>{fmtK(s.price)}</div>
-                  </div>
-                  <Btn small variant="primary" onClick={()=>{setServiceCompare(null);navigate('booking',{bookingFlow:{step:1,branch:br,service:s,staff:null,date:null,time:null}})}}>Book</Btn>
-                </div>
-              )})}
-            </div>
-            {allMatches.length===1&&<div style={{textAlign:'center',padding:'16px 0',color:MUTED,fontSize:13}}>Only one studio offers this service right now</div>}
-          </>);
-        })()}
-      </BottomSheet>
+          </Card>
+        )}
+      </div>
+    )
+  }
+
+  // ═════ LAYOUT ═════
+  const VIEWS = { dashboard: DashboardView, bookings: BookingsView, schedule: ScheduleView, staff: StaffView, services: ServicesView, clients: ClientsView, reviews: ReviewsView, financials: FinancialsView, wallet: WalletView, profile: ProfileView }
+  const View = VIEWS[page] || DashboardView
+  const title = NAV.find(n => n.id === page)?.label || 'Dashboard'
+
+  // ═══ AUTH GATE ═══
+  if (!authChecked) return (
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ textAlign: 'center', color: C.textMuted }}><div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Icon name="refresh" size={32} color={C.textMuted} /></div><div style={{ fontSize: 14 }}>Loading…</div></div>
+    </div>
+  )
+
+  // Password recovery — must render before other guards
+  if (showResetPassword) return (
+    <>
+      <style>{`* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; } input:focus { border-color: ${C.accent} !important; box-shadow: 0 0 0 3px rgba(196,125,90,0.15); }`}</style>
+      <ResetPasswordOverlay onDone={() => setShowResetPassword(false)} />
     </>
-  );
+  )
+
+  if (!authUser) return (
+    <StudioLogin onAuth={user => setAuthUser(user)} />
+  )
+
+  if (needsOnboarding) return (
+    <StudioOnboarding
+      authUser={authUser}
+      onComplete={(branch) => {
+        setOwnedBranches([branch])
+        setBranchId(branch.id)
+        setNeedsOnboarding(false)
+      }}
+      onLogout={handleLogout}
+    />
+  )
+
+  if (!branchId) return (
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ textAlign: 'center', color: C.textMuted }}><div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Icon name="refresh" size={32} color={C.textMuted} /></div><div style={{ fontSize: 14 }}>Loading branch…</div></div>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif", color: C.text, background: C.bg }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; font-family: 'DM Sans', system-ui, sans-serif; }
+::-webkit-scrollbar { width: 6px; height: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 3px; }
+input:focus,textarea:focus,select:focus { outline: none; border-color: ${C.accent} !important; box-shadow: 0 0 0 3px rgba(196,125,90,0.15); transition: border-color .15s, box-shadow .15s; }
+@keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pageIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes drawerIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes toastIn { 0% { opacity: 0; transform: translateY(16px) scale(.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes badgePulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+@keyframes successPop { 0% { transform: scale(0); opacity: 0; } 50% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes tabSlide { from { opacity: 0; transform: translateX(6px); } to { opacity: 1; transform: translateX(0); } }
+.page-in { animation: pageIn .3s cubic-bezier(.16,1,.3,1) both; }
+.page-content { animation: slideIn .35s cubic-bezier(.16,1,.3,1) both; }
+.scale-in { animation: scaleIn .25s cubic-bezier(.16,1,.3,1) both; }
+.toast-anim { animation: toastIn .3s cubic-bezier(.16,1,.3,1) both; }
+.badge-pulse { animation: badgePulse 2s ease-in-out infinite; }
+.success-pop { animation: successPop .4s cubic-bezier(.34,1.56,.64,1) both; }
+.tab-content { animation: tabSlide .25s cubic-bezier(.16,1,.3,1) both; }
+.skeleton { background: linear-gradient(90deg, ${C.border} 25%, #f5f0ed 50%, ${C.border} 75%); background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; border-radius: 8px; }
+.card-hover { transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s ease; }
+.card-hover:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(26,18,21,.06); }
+.btn-hover { transition: all .15s cubic-bezier(.16,1,.3,1); }
+.btn-hover:hover:not(:disabled) { filter: brightness(1.05); transform: translateY(-1px); }
+.btn-hover:active:not(:disabled) { transform: scale(.97) translateY(0); }
+.star-btn { transition: transform .12s cubic-bezier(.34,1.56,.64,1); cursor: pointer; display: inline-flex; }
+.star-btn:hover { transform: scale(1.2); }
+.star-btn:active { transform: scale(.9); }
+.icon-btn { transition: all .15s ease; display: flex; align-items: center; justify-content: center; }
+.icon-btn:hover { background: rgba(196,125,90,.08); transform: scale(1.05); }
+tr { transition: background .15s ease; } tr:hover { background: ${C.bg}; }
+.touch-target { min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; }
+.stagger-1{animation-delay:.05s}.stagger-2{animation-delay:.1s}.stagger-3{animation-delay:.15s}.stagger-4{animation-delay:.2s}.stagger-5{animation-delay:.25s}
+`}</style>
+
+      {/* Offline Banner */}
+      {isOffline && <div role="alert" style={{position:'fixed',top:0,left:0,right:0,zIndex:2100,background:'#c62828',color:'#fff',textAlign:'center',padding:'8px 16px',fontSize:13,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="alert" size={14} color="#fff"/>You're offline — check your connection</div>}
+
+      {/* Mobile/Tablet Drawer Overlay */}
+      {bp !== 'desktop' && sidebarOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1050 }}>
+          <div onClick={() => setSidebarOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }} />
+          <div style={{ position: 'relative', width: 280, maxWidth: '80vw', background: C.sidebar, height: '100%', display: 'flex', flexDirection: 'column', animation: 'drawerIn .25s ease', boxShadow: '4px 0 24px rgba(0,0,0,.2)' }}>
+            <div style={{ padding: '20px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <LogoFull iconSize={32} fontSize={16} onClick={()=>{setSidebarOpen(false);setPage('dashboard')}} sub="Studio"/>
+              <button onClick={() => setSidebarOpen(false)} className="touch-target" style={{ background: 'none', border: 'none', cursor: 'pointer' }}><Icon name="close" size={20} color="rgba(255,255,255,.5)" /></button>
+            </div>
+            <div style={{ padding: '0 12px', marginBottom: 12 }}>
+              <select value={branchId} onChange={e => setBranchId(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: C.sidebarHover, color: '#fff', fontSize: 13, fontFamily: 'DM Sans', cursor: 'pointer', outline: 'none', minHeight: 44 }}>
+                {(ownedBranches.length ? ownedBranches : branches).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
+            <nav style={{ flex: 1, overflowY: 'auto', padding: '0 8px' }}>
+              {NAV.map(item => <button key={item.id} onClick={() => { setPage(item.id); setSidebarOpen(false) }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: page === item.id ? 'rgba(196,125,90,0.15)' : 'transparent', border: 'none', borderLeft: page === item.id ? `3px solid ${C.accent}` : '3px solid transparent', color: page === item.id ? C.accent : 'rgba(255,255,255,0.55)', fontSize: 15, fontWeight: page === item.id ? 600 : 400, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left', minHeight: 48, borderRadius: 0 }}><Icon name={item.icon} size={20} color={page === item.id ? C.accent : 'rgba(255,255,255,0.55)'} />{item.label}</button>)}
+            </nav>
+            <div style={{ padding: 16, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              {authUser && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{authUser.email}</div>}
+              <button onClick={handleLogout} style={{ width: '100%', padding: '12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'center', minHeight: 44 }}>Sign Out</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Sidebar */}
+      {bp === 'desktop' && (
+        <div style={{ width: 240, background: C.sidebar, padding: '24px 0', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 100 }}>
+          <div style={{ padding: '0 20px', marginBottom: 28 }}>
+            <LogoFull iconSize={36} fontSize={17} onClick={()=>setPage('dashboard')} sub="Studio"/>
+          </div>
+          <div style={{ padding: '0 12px', marginBottom: 20 }}>
+            <select value={branchId} onChange={e => setBranchId(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: C.sidebarHover, color: '#fff', fontSize: 12, fontFamily: 'DM Sans', cursor: 'pointer', outline: 'none' }}>
+              {(ownedBranches.length ? ownedBranches : branches).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+          <nav style={{ flex: 1 }}>
+            {NAV.map(item => {
+              const active = page === item.id
+              return <button key={item.id} onClick={() => { setPage(item.id); setSidebarOpen(false) }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', background: active ? 'rgba(196,125,90,0.15)' : 'transparent', border: 'none', borderLeft: active ? `3px solid ${C.accent}` : '3px solid transparent', color: active ? C.accent : 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left', transition: 'all 0.15s' }}><Icon name={item.icon} size={18} color={active ? C.accent : 'rgba(255,255,255,0.55)'} />{item.label}</button>
+            })}
+          </nav>
+          <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            {authUser && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{authUser.email}</div>}
+            <button onClick={handleLogout} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans', textAlign: 'left' }}>Sign Out</button>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', marginTop: 8 }}>LuminBook Studio v1.0</div>
+          </div>
+        </div>
+      )}
+
+      {/* Main */}
+      <div style={{ flex: 1, marginLeft: bp === 'desktop' ? 240 : 0 }}>
+        <header style={{ padding: bp === 'desktop' ? '16px 32px' : '12px 16px', background: C.white, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 50 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: bp === 'desktop' ? 16 : 10 }}>
+            {bp !== 'desktop' && (
+              <button onClick={() => setSidebarOpen(!sidebarOpen)} className="touch-target" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                <Icon name="menu" size={24} color={C.text} />
+              </button>
+            )}
+            <div><h1 style={{ margin: 0, fontSize: bp === 'desktop' ? 22 : 18, fontFamily: 'Fraunces', fontWeight: 600, color: C.text }}>{title}</h1><p style={{ margin: 0, fontSize: 12, color: C.textMuted, display: bp === 'mobile' ? 'none' : 'block' }}>{branch?.name || 'Loading…'} • {new Date().toLocaleDateString('en-ZM', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            {unreplied.length > 0 && <button onClick={() => setPage('reviews')} style={{ padding: '6px 14px', borderRadius: 20, background: C.roseLight, border: 'none', color: C.rose, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', minHeight: 36, display: bp === 'mobile' ? 'none' : 'inline-flex', alignItems: 'center' }}>{unreplied.length} unreplied</button>}
+            <div onClick={() => setPage('profile')} style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg, ${C.accent}, ${C.rose})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>{branch?.name?.[0] || 'G'}</div>
+          </div>
+        </header>
+        <main style={{ padding: bp === 'desktop' ? 32 : bp === 'tablet' ? 24 : 16, animation: 'fadeIn 0.3s ease' }}>
+          {loading ? <div style={{ padding: 32 }}>
+            <div className="skeleton" style={{ width: '40%', height: 24, marginBottom: 20 }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+              {[0,1,2].map(i => <div key={i} style={{ background: '#fff', borderRadius: 14, padding: 20, border: `1px solid ${C.border}` }}><div className="skeleton" style={{ width: '50%', height: 14, marginBottom: 10 }} /><div className="skeleton" style={{ width: '35%', height: 24 }} /></div>)}
+            </div>
+            {[0,1,2,3].map(i => <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '14px 20px', marginBottom: 8, display: 'flex', gap: 14, alignItems: 'center', border: `1px solid ${C.border}` }}><div className="skeleton" style={{ width: 40, height: 40, borderRadius: '50%' }} /><div style={{ flex: 1 }}><div className="skeleton" style={{ width: '50%', height: 14, marginBottom: 6 }} /><div className="skeleton" style={{ width: '30%', height: 12 }} /></div><div className="skeleton" style={{ width: 70, height: 24, borderRadius: 20 }} /></div>)}
+          </div> : <div key={page} className="page-in"><View /></div>}
+        </main>
+      </div>
+
+      <ModalRouter />
+      {toast && <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 2000, padding: '12px 20px', borderRadius: 10, background: toast.type === 'error' ? C.danger : C.success, color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', animation: 'slideIn 0.3s ease', maxWidth: '90vw' }}>{toast.type === 'error' ? '✕ ' : '✓ '}{toast.msg}</div>}
+    </div>
+  )
 }
