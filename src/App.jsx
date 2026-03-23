@@ -68,7 +68,7 @@ const friendlyError = (msg) => {
   if (m.includes('rate limit') || m.includes('too many requests')) return 'Too many attempts. Wait a moment and try again.';
   if (m.includes('network') || m.includes('fetch')) return 'Connection error. Check your internet.';
   if (m.includes('duplicate') || m.includes('unique constraint') || m.includes('already exists')) return 'This record already exists.';
-  if (m.includes('foreign key') || m.includes('violates')) return 'Couldn\'t save Ã¢â‚¬â€ a linked record is missing.';
+  if (m.includes('foreign key') || m.includes('violates')) return 'Couldn\'t save — a linked record is missing.';
   if (m.includes('database error') || m.includes('schema')) return 'Service temporarily unavailable. Try again.';
   if (m.includes('jwt') || m.includes('token') || m.includes('unauthorized')) return 'Session expired. Please sign in again.';
   if (msg.length > 80) return 'Something went wrong. Please try again.';
@@ -125,7 +125,7 @@ function Empty({ icon, msg }) {
   return <div style={{ textAlign: 'center', padding: '40px 20px', color: C.textMuted }}><div style={{ marginBottom: 12, opacity: 0.4, display: 'flex', justifyContent: 'center' }}><Icon name={icon} size={40} color={C.textMuted} /></div><p style={{ margin: 0, fontSize: 14 }}>{msg}</p></div>
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ LUMINBOOK LOGO COMPONENTS Ã¢â€â‚¬Ã¢â€â‚¬
+// ── LUMINBOOK LOGO COMPONENTS ──
 const LogoIcon = ({size=36,style:s}) => (
   <div style={{width:size,height:size,borderRadius:size*.3,flexShrink:0,...s}}>
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
@@ -147,7 +147,7 @@ const LogoFull = ({iconSize=36,fontSize=17,onClick,dark=true,gap=10,sub}) => (
   </div>
 );
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ IMAGE UPLOAD UTILITY Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ─── IMAGE UPLOAD UTILITY ─────────────────────────────────────────
 async function uploadImage(bucket, folder, file) {
   if (file.size > 5 * 1024 * 1024) throw new Error('Image must be under 5MB')
   const allowed = ['image/jpeg','image/png','image/webp','image/gif']
@@ -163,7 +163,7 @@ async function uploadImage(bucket, folder, file) {
 function ImageUpload({ currentUrl, onUpload, bucket, folder, size = 80, round = false, label, onRemove, uploading: extUploading, onError }) {
   const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState(currentUrl || null)
-  // Fix #1: was incorrectly useState(null) Ã¢â‚¬â€ must be useRef for imperative DOM access
+  // Fix #1: was incorrectly useState(null) — must be useRef for imperative DOM access
   const inputRef = useRef(null)
   // Fix #3: generate a stable unique ID so multiple ImageUpload instances never share an input ID
   const uid = useId()
@@ -185,7 +185,7 @@ function ImageUpload({ currentUrl, onUpload, bucket, folder, size = 80, round = 
     } catch (err) {
       console.error('Upload error:', err)
       setPreview(currentUrl || null)
-      // Fix #2: was calling showToast() which is out of scope here Ã¢â‚¬â€ use the onError prop instead
+      // Fix #2: was calling showToast() which is out of scope here — use the onError prop instead
       onError?.('Upload failed. Please try again.')
     }
     setUploading(false)
@@ -274,7 +274,7 @@ function GalleryUpload({ images = [], onUpdate, bucket, folder }) {
         {list.map((img, i) => (
           <div key={i} style={{ width: 100, height: 72, borderRadius: 10, overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
             <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            <button onClick={() => removeImage(i)} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,.6)', border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Ãƒâ€”</button>
+            <button onClick={() => removeImage(i)} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,.6)', border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
           </div>
         ))}
         <div onClick={() => document.getElementById(`gallery-up-${folder}`).click()}
@@ -297,7 +297,7 @@ function CancelModal({ booking, onCancel, onClose }) {
   return (
     <Modal title="Cancel Booking" onClose={onClose}>
       <p style={{ fontSize: 14, color: C.textMuted }}>Are you sure you want to cancel this booking?</p>
-      <Input label="Cancellation Reason" value={reason} onChange={setReason} textarea placeholder="Optional reasonÃ¢â‚¬Â¦" />
+      <Input label="Cancellation Reason" value={reason} onChange={setReason} textarea placeholder="Optional reason…" />
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
         <Btn variant="ghost" onClick={onClose}>Keep Booking</Btn>
         <Btn variant="danger" onClick={() => onCancel(booking.id, reason)}>Confirm Cancel</Btn>
@@ -319,7 +319,7 @@ function ReplyModal({ review, clients, onReply, onClose }) {
         </div>
         {review.review_text && <p style={{ margin: 0, fontSize: 13, color: C.textMuted }}>{review.review_text}</p>}
       </div>
-      <Input label="Your Reply" value={reply} onChange={setReply} textarea placeholder="Write a professional replyÃ¢â‚¬Â¦" />
+      <Input label="Your Reply" value={reply} onChange={setReply} textarea placeholder="Write a professional reply…" />
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
         <Btn disabled={!reply.trim()} onClick={() => onReply(review.id, reply.trim())}>Post Reply</Btn>
@@ -361,7 +361,7 @@ function StaffModal({ staffMember, onSave, onClose, onError }) {
         <Input label="Start Time" value={form.start_time} onChange={v => up('start_time', v)} type="time" />
         <Input label="End Time" value={form.end_time} onChange={v => up('end_time', v)} type="time" />
       </div>
-      <Input label="Bio" value={form.bio} onChange={v => up('bio', v)} textarea placeholder="Brief descriptionÃ¢â‚¬Â¦" />
+      <Input label="Bio" value={form.bio} onChange={v => up('bio', v)} textarea placeholder="Brief description…" />
       <div style={{ marginBottom: 14 }}>
         <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 6, textTransform: 'uppercase' }}>Working Days</label>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -425,7 +425,7 @@ function BlockTimeModal({ staffMember, blockedTimes, onAdd, onRemove, onClose })
   const iSt = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, fontFamily: 'DM Sans', background: '#fff', marginBottom: 10 }
   const myBlocks = (blockedTimes || []).filter(bt => bt.staff_id === staffMember.id)
   return (
-    <Modal title={`Time Off Ã¢â‚¬â€ ${staffMember.name}`} onClose={onClose}>
+    <Modal title={`Time Off — ${staffMember.name}`} onClose={onClose}>
       <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Date</label>
       <input type="date" value={bDate} onChange={e => setBDate(e.target.value)} min={todayStr()} style={iSt} />
       <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Time Range (leave empty for full day off)</label>
@@ -446,7 +446,7 @@ function BlockTimeModal({ staffMember, blockedTimes, onAdd, onRemove, onClose })
           <h4 style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Upcoming Time Off</h4>
           {myBlocks.map(bt => (
             <div key={bt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${C.border}` }}>
-              <span style={{ fontSize: 13 }}>{fmtDate(bt.block_date)} {bt.start_time ? `${fmtTime(bt.start_time)}Ã¢â‚¬â€œ${fmtTime(bt.end_time)}` : '(all day)'} Ã¢â‚¬â€ {bt.reason?.replace('_', ' ')}</span>
+              <span style={{ fontSize: 13 }}>{fmtDate(bt.block_date)} {bt.start_time ? `${fmtTime(bt.start_time)}–${fmtTime(bt.end_time)}` : '(all day)'} — {bt.reason?.replace('_', ' ')}</span>
               <button onClick={() => onRemove(bt.id)} style={{ background: C.dangerBg, border: 'none', color: C.danger, borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Remove</button>
             </div>
           ))}
@@ -559,7 +559,7 @@ function ServiceModal({ service, branchId, onSave, onClose, existingAddons, onEr
         </div>
       </div>
 
-      {/* Service Name Ã¢â‚¬â€ suggestions or custom */}
+      {/* Service Name — suggestions or custom */}
       <div style={{ marginBottom: 16 }}>
         <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 6 }}>Service Name *</label>
         {showSuggestions && suggestions.length > 0 && (
@@ -618,7 +618,7 @@ function ServiceModal({ service, branchId, onSave, onClose, existingAddons, onEr
           {images.map((url, i) => (
             <div key={i} style={{ position: 'relative', width: 90, height: 90, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.border}` }}>
               <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              <button onClick={() => removeImage(i)} style={{ position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,.6)', border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>Ãƒâ€”</button>
+              <button onClick={() => removeImage(i)} style={{ position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,.6)', border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>×</button>
             </div>
           ))}
           {images.length < 3 && (
@@ -644,7 +644,7 @@ function ServiceModal({ service, branchId, onSave, onClose, existingAddons, onEr
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: C.bg, borderRadius: 8, marginBottom: 4, border: `1px solid ${C.border}` }}>
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: C.text }}>{a.name}</span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>+K{a.price}</span>
-                <button onClick={() => removeAddon(i)} style={{ background: 'none', border: 'none', color: C.danger, cursor: 'pointer', fontSize: 16, padding: 0, lineHeight: 1 }}>Ãƒâ€”</button>
+                <button onClick={() => removeAddon(i)} style={{ background: 'none', border: 'none', color: C.danger, cursor: 'pointer', fontSize: 16, padding: 0, lineHeight: 1 }}>×</button>
               </div>
             ))}
           </div>
@@ -686,24 +686,24 @@ function WalkinModal({ services, staff, branch, clients, onSave, onClose }) {
 
       <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Service *</label>
       <select value={form.service_id} onChange={e => { const s = services.find(x => x.id === e.target.value); up('service_id', e.target.value); if (s) up('total_amount', s.price || 0) }} style={iSt}>
-        <option value="">Select a serviceÃ¢â‚¬Â¦</option>
-        {services.filter(s => s.is_active !== false).map(s => <option key={s.id} value={s.id}>{s.name} Ã¢â‚¬â€ {fmt(s.price)}</option>)}
+        <option value="">Select a service…</option>
+        {services.filter(s => s.is_active !== false).map(s => <option key={s.id} value={s.id}>{s.name} — {fmt(s.price)}</option>)}
       </select>
 
       <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Stylist</label>
       <select value={form.staff_id} onChange={e => up('staff_id', e.target.value)} style={iSt}>
         <option value="">Any available</option>
-        {staff.map(s => <option key={s.id} value={s.id}>{s.name} Ã¢â‚¬â€ {s.role || 'Stylist'}</option>)}
+        {staff.map(s => <option key={s.id} value={s.id}>{s.name} — {s.role || 'Stylist'}</option>)}
       </select>
 
       <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Existing Client (search by name/phone)</label>
-      <input value={clientSearch} onChange={e => { setClientSearch(e.target.value); up('client_id', ''); up('walk_in_name', '') }} placeholder="Type to searchÃ¢â‚¬Â¦" style={iSt} />
+      <input value={clientSearch} onChange={e => { setClientSearch(e.target.value); up('client_id', ''); up('walk_in_name', '') }} placeholder="Type to search…" style={iSt} />
       {matchedClients.length > 0 && (
         <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 10, maxHeight: 120, overflowY: 'auto' }}>
           {matchedClients.map(c => (
             <div key={c.id} onClick={() => { up('client_id', c.id); up('walk_in_name', c.name); setClientSearch(c.name) }}
               style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: `1px solid ${C.border}`, fontSize: 13, background: form.client_id === c.id ? C.accentLight : 'transparent' }}>
-              {c.name} Ã¢â‚¬â€ {c.phone || c.email}
+              {c.name} — {c.phone || c.email}
             </div>
           ))}
         </div>
@@ -717,11 +717,11 @@ function WalkinModal({ services, staff, branch, clients, onSave, onClose }) {
       )}
 
       <label style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, display: 'block', marginBottom: 4 }}>Notes</label>
-      <textarea value={form.client_notes} onChange={e => up('client_notes', e.target.value)} placeholder="Any special requestsÃ¢â‚¬Â¦" rows={2} style={{ ...iSt, resize: 'vertical' }} />
+      <textarea value={form.client_notes} onChange={e => up('client_notes', e.target.value)} placeholder="Any special requests…" rows={2} style={{ ...iSt, resize: 'vertical' }} />
 
       {sv && <div style={{ padding: 12, borderRadius: 8, background: C.accentLight, marginBottom: 12 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: C.accent }}>{sv.name}</div>
-        <div style={{ fontSize: 12, color: C.textMuted }}>{sv.duration || 60} min Ã¢â‚¬â€ {fmt(sv.price)}</div>
+        <div style={{ fontSize: 12, color: C.textMuted }}>{sv.duration || 60} min — {fmt(sv.price)}</div>
       </div>}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -732,10 +732,10 @@ function WalkinModal({ services, staff, branch, clients, onSave, onClose }) {
   )
 }
 
-// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+// ═══════════════════════════════════════════════════════════════════
 // MAIN APP
-// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â AUTH LOGIN SCREEN Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+// ═══════════════════════════════════════════════════════════════════
+// ═════ AUTH LOGIN SCREEN ═════
 function StudioLogin({ onAuth }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -807,7 +807,7 @@ function StudioLogin({ onAuth }) {
             <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 24 }}>Enter your email for a reset link</p>
             {error && <div style={{ background: '#fce4ec', color: '#c62828', padding: '12px 16px', borderRadius: 12, fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{error}</div>}
             <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" type="email" style={iStyle} onKeyDown={e => e.key === 'Enter' && handleForgot()} />
-            <Btn full variant="primary" disabled={submitting} onClick={handleForgot} style={{ marginBottom: 12 }}>{submitting ? 'SendingÃ¢â‚¬Â¦' : 'Send Reset Link'}</Btn>
+            <Btn full variant="primary" disabled={submitting} onClick={handleForgot} style={{ marginBottom: 12 }}>{submitting ? 'Sending…' : 'Send Reset Link'}</Btn>
             <button onClick={() => { setMode('login'); setError('') }} style={{ background: 'none', border: 'none', color: C.accent, fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 8, textAlign: 'center', width: '100%' }}>Back to login</button>
           </>
         ) : (
@@ -818,7 +818,7 @@ function StudioLogin({ onAuth }) {
             {mode === 'signup' && <input value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" style={iStyle} />}
             <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" type="email" style={iStyle} />
             <input value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" type="password" style={iStyle} onKeyDown={e => e.key === 'Enter' && (mode === 'login' ? handleLogin() : handleSignup())} />
-            <Btn full variant="primary" disabled={submitting} onClick={mode === 'login' ? handleLogin : handleSignup} style={{ marginBottom: 12 }}>{submitting ? 'Please waitÃ¢â‚¬Â¦' : mode === 'login' ? 'Sign In' : 'Create Account'}</Btn>
+            <Btn full variant="primary" disabled={submitting} onClick={mode === 'login' ? handleLogin : handleSignup} style={{ marginBottom: 12 }}>{submitting ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}</Btn>
             {mode === 'login' && <button onClick={() => { setMode('forgot'); setError('') }} style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 13, cursor: 'pointer', padding: 4, marginBottom: 8, textAlign: 'center', width: '100%' }}>Forgot password?</button>}
             <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }} style={{ background: 'none', border: 'none', color: C.accent, fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 8, textAlign: 'center', width: '100%' }}>{mode === 'login' ? "Don't have an account? Register" : 'Already have an account? Sign in'}</button>
           </>
@@ -850,7 +850,7 @@ function ResetPasswordOverlay({ onDone }) {
       <div style={{ background: '#fff', borderRadius: 20, padding: 40, maxWidth: 400, width: '100%' }}>
         {done ? (
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>Ã¢Å“â€œ</div>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>✓</div>
             <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Password updated</h2>
             <p style={{ color: C.textMuted, fontSize: 14, marginBottom: 24 }}>Your password has been changed successfully.</p>
             <Btn full variant="primary" onClick={onDone}>Continue</Btn>
@@ -858,14 +858,14 @@ function ResetPasswordOverlay({ onDone }) {
         ) : (
           <>
             <div style={{ textAlign: 'center', marginBottom: 24 }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>Ã°Å¸â€â€˜</div>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🔑</div>
               <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Set new password</h2>
               <p style={{ color: C.textMuted, fontSize: 14 }}>Enter your new password below</p>
             </div>
             {error && <div style={{ background: '#fce8e8', color: C.danger, padding: '12px 16px', borderRadius: 12, fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{error}</div>}
             <input value={pw} onChange={e => setPw(e.target.value)} placeholder="New password" type="password" style={iStyle} autoFocus />
             <input value={pw2} onChange={e => setPw2(e.target.value)} placeholder="Confirm password" type="password" style={iStyle} onKeyDown={e => e.key === 'Enter' && handleReset()} />
-            <Btn full variant="primary" disabled={saving} onClick={handleReset} style={{ marginBottom: 12 }}>{saving ? 'SavingÃ¢â‚¬Â¦' : 'Update Password'}</Btn>
+            <Btn full variant="primary" disabled={saving} onClick={handleReset} style={{ marginBottom: 12 }}>{saving ? 'Saving…' : 'Update Password'}</Btn>
             <button onClick={onDone} style={{ width: '100%', background: 'none', border: 'none', color: C.textMuted, fontSize: 13, cursor: 'pointer', padding: 8, textAlign: 'center' }}>Skip for now</button>
           </>
         )}
@@ -943,7 +943,7 @@ function StudioOnboarding({ authUser, onComplete, onLogout }) {
         </div>
 
         <button onClick={handleCreate} disabled={submitting} style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: C.accent, color: '#fff', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', marginBottom: 12, opacity: submitting ? 0.6 : 1, minHeight: 48 }}>
-          {submitting ? 'CreatingÃ¢â‚¬Â¦' : 'Create Studio'}
+          {submitting ? 'Creating…' : 'Create Studio'}
         </button>
 
         <button onClick={onLogout} style={{ width: '100%', padding: '10px', background: 'none', border: 'none', color: C.textMuted, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans' }}>Sign out</button>
@@ -953,7 +953,7 @@ function StudioOnboarding({ authUser, onComplete, onLogout }) {
 }
 
 export default function App() {
-  // Ã¢â€â‚¬Ã¢â€â‚¬ AUTH STATE Ã¢â€â‚¬Ã¢â€â‚¬
+  // ── AUTH STATE ──
   const bp = useBreakpoint()
   const [authUser, setAuthUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
@@ -991,7 +991,7 @@ export default function App() {
 
   const [showResetPassword, setShowResetPassword] = useState(false)
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ AUTH CHECK Ã¢â€â‚¬Ã¢â€â‚¬
+  // ── AUTH CHECK ──
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthUser(session?.user || null)
@@ -1004,7 +1004,7 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ FIND OWNED BRANCHES Ã¢â€â‚¬Ã¢â€â‚¬
+  // ── FIND OWNED BRANCHES ──
   useEffect(() => {
     if (!authChecked) return
     if (authUser) {
@@ -1102,7 +1102,7 @@ export default function App() {
   const completedBk = bookings.filter(b => b.status === 'completed')
   const todayRev = todayBk.filter(b => b.status === 'completed').reduce((s, b) => s + (b.total_amount || 0), 0)
   const monthRev = completedBk.filter(b => { const d = new Date(b.booking_date); const n = new Date(); return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear() }).reduce((s, b) => s + (b.total_amount || 0), 0)
-  const avgRating = reviews.length ? (reviews.reduce((s, r) => s + r.rating_overall, 0) / reviews.length).toFixed(1) : 'Ã¢â‚¬â€'
+  const avgRating = reviews.length ? (reviews.reduce((s, r) => s + r.rating_overall, 0) / reviews.length).toFixed(1) : '—'
   const unreplied = reviews.filter(r => !r.response_text)
 
   // CRUD
@@ -1198,7 +1198,7 @@ export default function App() {
   }
   const sendReviewRequest = (bookingId) => sendSMSAction('send_review_request', { booking_id: bookingId })
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â DASHBOARD Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ═════ DASHBOARD ═════
   const isPendingApproval = branch && (branch.approval_status === 'pending' || (!branch.is_active && branch.approval_status !== 'approved'))
 
   function DashboardView() {
@@ -1241,7 +1241,7 @@ export default function App() {
                   <div style={{ width: 48, height: 48, borderRadius: 12, background: C.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.accent, fontSize: 13, flexShrink: 0, textAlign: 'center', lineHeight: 1.2 }}>{fmtTime(b.booking_time)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 14, color: C.text }}>{cl?.name || 'Client'}</div>
-                    <div style={{ fontSize: 12, color: C.textMuted }}>{sv?.name} Ã¢â‚¬Â¢ {st?.name}</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>{sv?.name} • {st?.name}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     <Badge status={b.status} />
@@ -1262,7 +1262,7 @@ export default function App() {
                     <span style={{ fontWeight: 600, fontSize: 13, color: C.text }}>{cl?.name || 'Client'}</span>
                     <span style={{ color: C.gold, fontSize: 13 }}>{stars(r.rating_overall)}</span>
                   </div>
-                  {r.review_text && <p style={{ margin: 0, fontSize: 13, color: C.textMuted, lineHeight: 1.4 }}>{r.review_text.slice(0, 80)}{r.review_text.length > 80 ? 'Ã¢â‚¬Â¦' : ''}</p>}
+                  {r.review_text && <p style={{ margin: 0, fontSize: 13, color: C.textMuted, lineHeight: 1.4 }}>{r.review_text.slice(0, 80)}{r.review_text.length > 80 ? '…' : ''}</p>}
                   {!r.response_text && <Btn small variant="secondary" style={{ marginTop: 6 }} onClick={() => setModal({ type: 'replyReview', review: r })}>Reply</Btn>}
                 </div>
               )
@@ -1306,7 +1306,7 @@ export default function App() {
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: C.roseLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.rose, fontSize: 16 }}>{cl?.name?.[0] || '?'}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 13 }}>{cl?.name || 'Client'}</div>
-                    <div style={{ fontSize: 12, color: C.textMuted }}>{sv?.name || 'Any'} Ã¢â‚¬Â¢ {fmtDate(w.preferred_date)} {w.preferred_time ? fmtTime(w.preferred_time) : ''} {st ? `Ã¢â‚¬Â¢ ${st.name}` : ''}</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>{sv?.name || 'Any'} • {fmtDate(w.preferred_date)} {w.preferred_time ? fmtTime(w.preferred_time) : ''} {st ? `• ${st.name}` : ''}</div>
                   </div>
                   <Btn small variant="success" onClick={() => dismissWaitlist(w.id)}>Notify</Btn>
                 </div>
@@ -1318,7 +1318,7 @@ export default function App() {
     )
   }
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â BOOKINGS Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ═════ BOOKINGS ═════
   function BookingsView() {
     const [filter, setFilter] = useState('all')
     const [search, setSearch] = useState('')
@@ -1333,7 +1333,7 @@ export default function App() {
           {['all', 'pending', 'confirmed', 'arrived', 'in_progress', 'completed', 'no_show', 'cancelled'].map(f => (
             <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 16px', borderRadius: 20, border: `1.5px solid ${filter === f ? C.accent : C.border}`, background: filter === f ? C.accentLight : 'transparent', color: filter === f ? C.accent : C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans' }}>{f === 'all' ? 'All' : (SC[f]?.label || f)}</button>
           ))}
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search client or serviceÃ¢â‚¬Â¦" style={{ marginLeft: 'auto', padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', width: 200, outline: 'none', color: C.text }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search client or service…" style={{ marginLeft: 'auto', padding: '8px 14px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', width: 200, outline: 'none', color: C.text }} />
           <Btn small onClick={() => setModal({ type: 'walkinBooking' })} style={{ background: C.accent, color: '#fff' }}>+ Walk-in</Btn>
         </div>
         <Card>
@@ -1347,12 +1347,12 @@ export default function App() {
                   <tr key={b.id} style={{ borderBottom: `1px solid ${C.border}` }}>
                     <td style={{ padding: '12px 8px', fontWeight: 500 }}>{fmtDate(b.booking_date)}</td>
                     <td style={{ padding: '12px 8px' }}>{fmtTime(b.booking_time)}</td>
-                    <td style={{ padding: '12px 8px', fontWeight: 600, color: C.text }}>{cl?.name || (b.walk_in_name || 'Ã¢â‚¬â€')}{b.is_walk_in && <span style={{ fontSize: 10, color: C.gold, marginLeft: 4 }}>WALK-IN</span>}</td>
-                    <td style={{ padding: '12px 8px' }}>{sv?.name || 'Ã¢â‚¬â€'}</td>
-                    <td style={{ padding: '12px 8px' }}>{st?.name || 'Ã¢â‚¬â€'}</td>
+                    <td style={{ padding: '12px 8px', fontWeight: 600, color: C.text }}>{cl?.name || (b.walk_in_name || '—')}{b.is_walk_in && <span style={{ fontSize: 10, color: C.gold, marginLeft: 4 }}>WALK-IN</span>}</td>
+                    <td style={{ padding: '12px 8px' }}>{sv?.name || '—'}</td>
+                    <td style={{ padding: '12px 8px' }}>{st?.name || '—'}</td>
                     <td style={{ padding: '12px 8px', fontWeight: 600 }}>{fmt(b.total_amount)}{b.discount_amount > 0 && <div style={{ fontSize: 10, color: C.gold }}>-{fmt(b.discount_amount)} pts</div>}</td>
                     <td style={{ padding: '12px 8px' }}>{b.deposit_paid ? <span style={{ color: C.success, fontWeight: 600, fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 2 }}><Check size={12}/> K{b.deposit_amount || branch?.default_deposit || 100}</span> : <button onClick={() => updateBooking(b.id, { deposit_paid: true, deposit_paid_at: new Date().toISOString(), deposit_amount: b.deposit_amount || branch?.default_deposit || 100 })} style={{ padding: '2px 8px', borderRadius: 4, border: `1px solid ${C.border}`, background: 'transparent', cursor: 'pointer', fontSize: 11, color: C.accent, fontFamily: 'DM Sans' }}>Mark Paid</button>}</td>
-                    <td style={{ padding: '12px 8px', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: C.textMuted }} title={b.client_notes || ''}>{b.client_notes || 'Ã¢â‚¬â€'}</td>
+                    <td style={{ padding: '12px 8px', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: C.textMuted }} title={b.client_notes || ''}>{b.client_notes || '—'}</td>
                     <td style={{ padding: '12px 8px' }}><Badge status={b.status} /></td>
                     <td style={{ padding: '12px 8px' }}>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -1378,7 +1378,7 @@ export default function App() {
     )
   }
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â SCHEDULE Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ═════ SCHEDULE ═════
   function ScheduleView() {
     const [selDate, setSelDate] = useState(todayStr())
     const [tab, setTab] = useState('calendar')
@@ -1578,7 +1578,7 @@ export default function App() {
     )
   }
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â STAFF Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ═════ STAFF ═════
   function StaffView() {
     return (
       <div>
@@ -1595,12 +1595,12 @@ export default function App() {
                   <div><div style={{ fontWeight: 700, fontSize: 16, color: C.text, fontFamily: 'Fraunces' }}>{s.name}</div><div style={{ fontSize: 13, color: C.textMuted }}>{s.role}</div><span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: on ? C.successBg : C.dangerBg, color: on ? C.success : C.danger }}>{on ? 'On Duty' : 'Off'}</span></div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
-                  {[{ l: 'Rating', v: s.rating ? <span style={{display:'flex',alignItems:'center',gap:2}}>{s.rating}<Star size={12} fill="#c9a84c" stroke="#c9a84c" strokeWidth={0}/></span> : 'Ã¢â‚¬â€' }, { l: 'Done', v: s.bookings_completed || 0 }, { l: 'Exp', v: `${s.years_experience || 0}yr` }].map((x, i) => (
+                  {[{ l: 'Rating', v: s.rating ? <span style={{display:'flex',alignItems:'center',gap:2}}>{s.rating}<Star size={12} fill="#c9a84c" stroke="#c9a84c" strokeWidth={0}/></span> : '—' }, { l: 'Done', v: s.bookings_completed || 0 }, { l: 'Exp', v: `${s.years_experience || 0}yr` }].map((x, i) => (
                     <div key={i} style={{ textAlign: 'center', padding: 8, borderRadius: 8, background: C.bg }}><div style={{ fontSize: 15, fontWeight: 700, color: C.accent }}>{x.v}</div><div style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase' }}>{x.l}</div></div>
                   ))}
                 </div>
                 {s.specialties?.length > 0 && <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 12 }}>{s.specialties.map(sp => <span key={sp} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 12, background: C.goldLight, color: C.gold, fontWeight: 500 }}>{sp}</span>)}</div>}
-                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>{fmtTime(s.start_time)} Ã¢â‚¬â€œ {fmtTime(s.end_time)}</div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>{fmtTime(s.start_time)} – {fmtTime(s.end_time)}</div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <Btn small variant="secondary" onClick={() => setModal({ type: 'editStaff', staffMember: s })}>Edit</Btn>
                   <Btn small variant="ghost" onClick={() => setModal({ type: 'blockTime', staffMember: s })}>Time Off</Btn>
@@ -1611,8 +1611,8 @@ export default function App() {
                     <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Upcoming Time Off</div>
                     {blockedTimes.filter(bt => bt.staff_id === s.id).slice(0, 3).map(bt => (
                       <div key={bt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, padding: '4px 0' }}>
-                        <span style={{ color: C.textMuted }}>{bt.block_date} {bt.start_time ? `${fmtTime(bt.start_time)}Ã¢â‚¬â€œ${fmtTime(bt.end_time)}` : '(all day)'}</span>
-                        <button onClick={() => removeBlockedTime(bt.id)} style={{ background: 'none', border: 'none', color: C.danger, fontSize: 14, cursor: 'pointer', padding: '0 4px' }}>Ãƒâ€”</button>
+                        <span style={{ color: C.textMuted }}>{bt.block_date} {bt.start_time ? `${fmtTime(bt.start_time)}–${fmtTime(bt.end_time)}` : '(all day)'}</span>
+                        <button onClick={() => removeBlockedTime(bt.id)} style={{ background: 'none', border: 'none', color: C.danger, fontSize: 14, cursor: 'pointer', padding: '0 4px' }}>×</button>
                       </div>
                     ))}
                   </div>
@@ -1625,7 +1625,7 @@ export default function App() {
     )
   }
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â SERVICES Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ═════ SERVICES ═════
   function ServicesView() {
     const cats = [...new Set(services.map(s => s.category))]
     const getAddons = (svcId) => serviceAddons.filter(a => a.service_id === svcId)
@@ -1649,7 +1649,7 @@ export default function App() {
                     {thumb && <img src={thumb} alt="" style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 10, marginBottom: 10 }} />}
                     {s.images?.length > 1 && <div style={{ position: 'absolute', top: thumb ? 102 : 8, right: 12, background: 'rgba(0,0,0,.6)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10 }}>+{s.images.length - 1} more</div>}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                      <div><div style={{ fontWeight: 700, fontSize: 15, color: C.text, fontFamily: 'Fraunces' }}>{s.name}</div><div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{s.duration}min{s.duration_max ? ` Ã¢â‚¬â€œ ${s.duration_max}min` : ''}</div></div>
+                      <div><div style={{ fontWeight: 700, fontSize: 15, color: C.text, fontFamily: 'Fraunces' }}>{s.name}</div><div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{s.duration}min{s.duration_max ? ` – ${s.duration_max}min` : ''}</div></div>
                       <div style={{ textAlign: 'right' }}><div style={{ fontWeight: 700, fontSize: 17, color: C.accent }}>{fmt(s.price)}</div></div>
                     </div>
                     {s.description && <p style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.4, margin: '6px 0' }}>{s.description}</p>}
@@ -1671,13 +1671,13 @@ export default function App() {
     )
   }
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CLIENTS Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ═════ CLIENTS ═════
   function ClientsView() {
     const [search, setSearch] = useState('')
     const filtered = clients.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.phone || '').includes(search) || (c.email || '').includes(search))
     return (
       <div>
-        <div style={{ marginBottom: 16 }}><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clientsÃ¢â‚¬Â¦" style={{ padding: '10px 16px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', width: 320, outline: 'none', color: C.text, background: C.white }} /></div>
+        <div style={{ marginBottom: 16 }}><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients…" style={{ padding: '10px 16px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'DM Sans', width: 320, outline: 'none', color: C.text, background: C.white }} /></div>
         <Card>
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 700 }}>
@@ -1699,7 +1699,7 @@ export default function App() {
     )
   }
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â REVIEWS Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ═════ REVIEWS ═════
   function ReviewsView() {
     const [filter, setFilter] = useState('all')
     const filtered = reviews.filter(r => filter === 'unreplied' ? !r.response_text : filter === 'replied' ? !!r.response_text : true)
@@ -1718,14 +1718,14 @@ export default function App() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   <div style={{ width: 42, height: 42, borderRadius: '50%', background: C.roseLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.rose }}>{(cl?.name || 'C')[0]}</div>
-                  <div><div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{cl?.name || 'Client'}</div><div style={{ fontSize: 12, color: C.textMuted }}>{sv?.name}{st ? ` Ã¢â‚¬Â¢ ${st.name}` : ''} Ã¢â‚¬Â¢ {new Date(r.created_at).toLocaleDateString()}</div></div>
+                  <div><div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{cl?.name || 'Client'}</div><div style={{ fontSize: 12, color: C.textMuted }}>{sv?.name}{st ? ` • ${st.name}` : ''} • {new Date(r.created_at).toLocaleDateString()}</div></div>
                 </div>
                 <div style={{ color: C.gold, fontSize: 16 }}>{stars(r.rating_overall)}</div>
               </div>
               {r.review_text && <p style={{ margin: '12px 0', fontSize: 14, color: C.text, lineHeight: 1.5, paddingLeft: 54 }}>{r.review_text}</p>}
               {r.response_text ? (
                 <div style={{ marginLeft: 54, padding: '12px 16px', borderRadius: 10, background: C.bg, borderLeft: `3px solid ${C.accent}` }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, marginBottom: 4 }}>YOUR REPLY Ã¢â‚¬Â¢ {r.response_date}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, marginBottom: 4 }}>YOUR REPLY • {r.response_date}</div>
                   <p style={{ margin: 0, fontSize: 13, color: C.text, lineHeight: 1.4 }}>{r.response_text}</p>
                 </div>
               ) : <div style={{ marginLeft: 54, marginTop: 8 }}><Btn small variant="secondary" onClick={() => setModal({ type: 'replyReview', review: r })}>Reply to Review</Btn></div>}
@@ -1736,7 +1736,7 @@ export default function App() {
     )
   }
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â FINANCIALS Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ═════ FINANCIALS ═════
   function FinancialsView() {
     const now = new Date()
     const thisM = completedBk.filter(b => { const d = new Date(b.booking_date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() })
@@ -1751,7 +1751,7 @@ export default function App() {
     const depositsThisM = thisM.filter(b => b.deposit_paid).reduce((s, b) => s + (b.deposit_amount || 0), 0)
     const growth = lmRev > 0 ? Math.round(((tmRev - lmRev) / lmRev) * 100) : (tmRev > 0 ? 100 : 0)
 
-    // Revenue trend Ã¢â‚¬â€ last 6 months
+    // Revenue trend — last 6 months
     const trendData = Array.from({ length: 6 }, (_, i) => {
       const m = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
       const mBk = completedBk.filter(b => { const d = new Date(b.booking_date); return d.getMonth() === m.getMonth() && d.getFullYear() === m.getFullYear() })
@@ -1775,7 +1775,7 @@ export default function App() {
       <div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
           {[
-            { l: 'This Month', v: fmt(tmRev), c: C.gold, s: `${thisM.length} bookings Ã¢â‚¬Â¢ ${growth >= 0 ? 'Ã¢â€ â€˜' : 'Ã¢â€ â€œ'}${Math.abs(growth)}% vs last month` },
+            { l: 'This Month', v: fmt(tmRev), c: C.gold, s: `${thisM.length} bookings • ${growth >= 0 ? '↑' : '↓'}${Math.abs(growth)}% vs last month` },
             { l: 'Last Month', v: fmt(lmRev), c: C.textMuted, s: `${lastM.length} bookings` },
             { l: 'Net Earnings', v: fmt(net), c: C.success, s: `After ${fmt(fees)} in fees` },
           ].map((s, i) => (
@@ -1824,8 +1824,8 @@ export default function App() {
                 return (
                   <tr key={b.id} style={{ borderBottom: `1px solid ${C.border}` }}>
                     <td style={{ padding: '10px 8px' }}>{fmtDate(b.booking_date)}</td>
-                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>{cl?.name || 'Ã¢â‚¬â€'}</td>
-                    <td style={{ padding: '10px 8px' }}>{sv?.name || 'Ã¢â‚¬â€'}</td>
+                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>{cl?.name || '—'}</td>
+                    <td style={{ padding: '10px 8px' }}>{sv?.name || '—'}</td>
                     <td style={{ padding: '10px 8px', fontWeight: 600, color: C.success }}>{fmt(b.total_amount)}</td>
                     <td style={{ padding: '10px 8px', color: C.danger }}>-{fmt(b.platform_fee || 0)}</td>
                     <td style={{ padding: '10px 8px', fontWeight: 700 }}>{fmt((b.total_amount || 0) - (b.platform_fee || 0))}</td>
@@ -1840,7 +1840,7 @@ export default function App() {
     )
   }
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â PROFILE Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ═════ PROFILE ═════
   function ProfileView() {
     if (!branch) return null
     return (
@@ -1853,15 +1853,15 @@ export default function App() {
             <div>
               <h2 style={{ margin: '0 0 6px', fontSize: 24, fontFamily: 'Fraunces', color: C.text }}>{branch.name}</h2>
               <p style={{ margin: '0 0 4px', fontSize: 14, color: C.textMuted }}>{branch.location}</p>
-              <p style={{ margin: '0 0 4px', fontSize: 13, color: C.textMuted }}>{branch.phone} Ã¢â‚¬Â¢ {branch.email}</p>
+              <p style={{ margin: '0 0 4px', fontSize: 13, color: C.textMuted }}>{branch.phone} • {branch.email}</p>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}><span style={{ color: C.gold }}>{stars(branch.rating || 0)}</span><span style={{ fontSize: 13, color: C.textMuted }}>{branch.rating} ({branch.review_count} reviews)</span></div>
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-            <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Hours</div><div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{fmtTime(branch.open_time)} Ã¢â‚¬â€œ {fmtTime(branch.close_time)}</div></div>
+            <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Hours</div><div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{fmtTime(branch.open_time)} – {fmtTime(branch.close_time)}</div></div>
             <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Default Deposit</div><div style={{ fontSize: 15, fontWeight: 600, color: C.gold }}>K{branch.default_deposit ?? 100}</div></div>
             <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Status</div><div style={{ display: 'flex', gap: 8 }}><span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: branch.is_active ? C.successBg : C.dangerBg, color: branch.is_active ? C.success : C.danger }}>{branch.is_active ? 'Active' : 'Inactive'}</span><span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: C.pendingBg, color: C.pending }}>{branch.approval_status}</span></div></div>
-            <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Cancellation</div><div style={{ fontSize: 13, color: C.text }}>Free within {branch.cancellation_hours ?? 2}h Ã¢â‚¬Â¢ Late: {branch.cancellation_fee_percent ?? 0}% Ã¢â‚¬Â¢ No-show: {branch.no_show_fee_percent ?? 50}%</div></div>
+            <div style={{ padding: 16, borderRadius: 10, background: C.bg }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>Cancellation</div><div style={{ fontSize: 13, color: C.text }}>Free within {branch.cancellation_hours ?? 2}h • Late: {branch.cancellation_fee_percent ?? 0}% • No-show: {branch.no_show_fee_percent ?? 50}%</div></div>
           </div>
           {branch.description && <div style={{ marginBottom: 20 }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>About</div><p style={{ margin: 0, fontSize: 14, color: C.text, lineHeight: 1.5 }}>{branch.description}</p></div>}
           {branch.images?.length > 0 && <div style={{ marginBottom: 20 }}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Gallery</div><div style={{ display: 'flex', gap: 10, overflowX: 'auto' }}>{branch.images.map((img, i) => <img key={i} src={img} alt="" style={{ width: 160, height: 110, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />)}</div></div>}
@@ -1870,7 +1870,7 @@ export default function App() {
 
         {/* Booking Link */}
         <Card title="Your Booking Link" style={{ marginTop: 20 }}>
-          <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>Share this link on WhatsApp, Instagram, Facebook Ã¢â‚¬â€ clients can book directly from it.</p>
+          <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>Share this link on WhatsApp, Instagram, Facebook — clients can book directly from it.</p>
           {(() => {
             const slug = branch.booking_slug;
             const domain = window.location.hostname.replace(/^studio\./,'');
@@ -1882,8 +1882,8 @@ export default function App() {
                   <Btn variant="primary" onClick={() => { navigator.clipboard.writeText(link); showToast('Link copied!') }} style={{ flexShrink: 0 }}>Copy Link</Btn>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <Btn variant="ghost" onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`Book your appointment at ${branch.name}! Ã°Å¸â€™â€¡Ã¢â‚¬ÂÃ¢â„¢â‚¬Ã¯Â¸Â\n${link}`)}`, '_blank')} style={{ fontSize: 12 }}>Ã°Å¸â€œÂ± Share on WhatsApp</Btn>
-                  <Btn variant="ghost" onClick={() => navigator.clipboard.writeText(`Book your appointment at ${branch.name}! Ã°Å¸â€™â€¡Ã¢â‚¬ÂÃ¢â„¢â‚¬Ã¯Â¸Â\n${link}`).then(() => showToast('Caption + link copied!'))} style={{ fontSize: 12 }}>Ã°Å¸â€œâ€¹ Copy with Caption</Btn>
+                  <Btn variant="ghost" onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`Book your appointment at ${branch.name}! 💇‍♀️\n${link}`)}`, '_blank')} style={{ fontSize: 12 }}>📱 Share on WhatsApp</Btn>
+                  <Btn variant="ghost" onClick={() => navigator.clipboard.writeText(`Book your appointment at ${branch.name}! 💇‍♀️\n${link}`).then(() => showToast('Caption + link copied!'))} style={{ fontSize: 12 }}>📋 Copy with Caption</Btn>
                 </div>
               </div>
             ) : (
@@ -1896,7 +1896,7 @@ export default function App() {
                     const v = document.getElementById('slug-input').value.toLowerCase().replace(/[^a-z0-9-]/g,'').replace(/-+/g,'-').replace(/^-|-$/g,'');
                     if(!v || v.length < 3) return showToast('Slug must be at least 3 characters', 'error');
                     const { error } = await supabase.from('branches').update({ booking_slug: v }).eq('id', branch.id);
-                    if(error) { showToast(error.message.includes('unique') ? 'That slug is taken Ã¢â‚¬â€ try another' : friendlyError(error.message), 'error'); }
+                    if(error) { showToast(error.message.includes('unique') ? 'That slug is taken — try another' : friendlyError(error.message), 'error'); }
                     else { setBranch(prev => ({ ...prev, booking_slug: v })); showToast('Booking link saved!'); }
                   }}>Save</Btn>
                 </div>
@@ -1980,7 +1980,7 @@ export default function App() {
         {!open ? (
           <div>
             <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 14, lineHeight: 1.5 }}>Have ideas on how to improve LuminBook? We'd love to hear from you.</p>
-            <Btn variant="ghost" onClick={() => setOpen(true)}>Share a Suggestion Ã¢â€ â€™</Btn>
+            <Btn variant="ghost" onClick={() => setOpen(true)}>Share a Suggestion →</Btn>
           </div>
         ) : (
           <div>
@@ -2001,7 +2001,7 @@ export default function App() {
     )
   }
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â MODAL ROUTER Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ═════ MODAL ROUTER ═════
   function ModalRouter() {
     if (!modal) return null
     const { type } = modal
@@ -2023,7 +2023,7 @@ export default function App() {
           client_notes: data.client_notes || null,
           created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
         })
-        if (!error) { showToast('Walk-in booking created! Ã°Å¸Å¡Â¶'); fetchAll(); setModal(null) }
+        if (!error) { showToast('Walk-in booking created! 🚶'); fetchAll(); setModal(null) }
         else showToast('Error: ' + error.message, 'error')
       }} clients={clients} onClose={() => setModal(null)} />
     }
@@ -2032,7 +2032,7 @@ export default function App() {
       return (
         <Modal title="Booking Details" onClose={() => setModal(null)}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            {[['Date', fmtDate(b.booking_date)], ['Time', fmtTime(b.booking_time)], ['Client', cl?.name || (b.walk_in_name || 'Ã¢â‚¬â€')], ['Service', sv?.name || 'Ã¢â‚¬â€'], ['Staff', st?.name || 'Ã¢â‚¬â€'], ['Duration', `${b.duration} min`], ['Amount', fmt(b.total_amount)], ['Fee', fmt(b.platform_fee)], ['Status', (SC[b.status]?.label || b.status)], ['Deposit', b.deposit_paid ? `Yes Ã¢â‚¬â€ ${fmt(b.deposit_amount || branch?.default_deposit || 100)}` : `Required: K${sv?.deposit_amount || branch?.default_deposit || 100}`], ['Points Used', b.points_used > 0 ? `${b.points_used} pts (-${fmt(b.discount_amount)})` : 'Ã¢â‚¬â€'], ['Type', b.is_walk_in ? 'Walk-in' : 'Online']].map(([l, v]) => <div key={l}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>{l}</div><div style={{ fontSize: 14, fontWeight: 500, color: C.text }}>{v}</div></div>)}
+            {[['Date', fmtDate(b.booking_date)], ['Time', fmtTime(b.booking_time)], ['Client', cl?.name || (b.walk_in_name || '—')], ['Service', sv?.name || '—'], ['Staff', st?.name || '—'], ['Duration', `${b.duration} min`], ['Amount', fmt(b.total_amount)], ['Fee', fmt(b.platform_fee)], ['Status', (SC[b.status]?.label || b.status)], ['Deposit', b.deposit_paid ? `Yes — ${fmt(b.deposit_amount || branch?.default_deposit || 100)}` : `Required: K${sv?.deposit_amount || branch?.default_deposit || 100}`], ['Points Used', b.points_used > 0 ? `${b.points_used} pts (-${fmt(b.discount_amount)})` : '—'], ['Type', b.is_walk_in ? 'Walk-in' : 'Online']].map(([l, v]) => <div key={l}><div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 2 }}>{l}</div><div style={{ fontSize: 14, fontWeight: 500, color: C.text }}>{v}</div></div>)}
           </div>
           {b.client_notes && <div style={{ marginTop: 14, padding: 12, borderRadius: 8, background: C.bg }}><strong style={{ fontSize: 11, color: C.textMuted }}>CLIENT NOTES:</strong><p style={{ margin: '4px 0 0', fontSize: 13 }}>{b.client_notes}</p></div>}
           {b.cancellation_reason && <div style={{ marginTop: 10, padding: 12, borderRadius: 8, background: '#fce4ec' }}><strong style={{ fontSize: 11, color: '#c62828' }}>CANCELLATION REASON:</strong><p style={{ margin: '4px 0 0', fontSize: 13, color: '#c62828' }}>{b.cancellation_reason}</p></div>}
@@ -2057,7 +2057,7 @@ export default function App() {
         <Modal title="Client Details" onClose={() => setModal(null)} wide>
           <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
             <div style={{ width: 60, height: 60, borderRadius: '50%', background: C.roseLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: C.rose, fontSize: 22 }}>{c.name[0]}</div>
-            <div><h3 style={{ margin: '0 0 4px', fontSize: 18, fontFamily: 'Fraunces', color: C.text }}>{c.name}</h3><div style={{ fontSize: 13, color: C.textMuted }}>{c.phone} Ã¢â‚¬Â¢ {c.email}</div><div style={{ display: 'flex', gap: 12, marginTop: 8 }}><span style={{ fontSize: 12, fontWeight: 600, color: C.gold }}>Ã¢Å“Â¦ {c.lumin_points || 0} LuminPoints</span><span style={{ fontSize: 12, color: C.textMuted }}>Spent: {fmt(c.total_spent || 0)}</span></div></div>
+            <div><h3 style={{ margin: '0 0 4px', fontSize: 18, fontFamily: 'Fraunces', color: C.text }}>{c.name}</h3><div style={{ fontSize: 13, color: C.textMuted }}>{c.phone} • {c.email}</div><div style={{ display: 'flex', gap: 12, marginTop: 8 }}><span style={{ fontSize: 12, fontWeight: 600, color: C.gold }}>✦ {c.lumin_points || 0} LuminPoints</span><span style={{ fontSize: 12, color: C.textMuted }}>Spent: {fmt(c.total_spent || 0)}</span></div></div>
           </div>
           <h4 style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Booking History</h4>
           {cb.length === 0 ? <p style={{ fontSize: 13, color: C.textMuted }}>No bookings at your branch.</p> : cb.slice(0, 8).map(b => {
@@ -2070,7 +2070,7 @@ export default function App() {
     return null
   }
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â WALLET Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ═════ WALLET ═════
   function WalletView() {
     const [walletData, setWalletData] = useState(null)
     const [walletLoading, setWalletLoading] = useState(true)
@@ -2134,8 +2134,8 @@ export default function App() {
           {[
             { l: 'Available Balance', v: fmt(bal), c: C.success, icon: 'dollar' },
             { l: 'Total Earned', v: fmt(earned), c: C.accent, icon: 'trendUp' },
-            { l: 'Total Withdrawn', v: fmt(withdrawn), c: C.gold, icon: 'Ã°Å¸â€™Â¸' },
-            { l: 'Platform Fees Paid', v: fmt(feesPaid), c: C.textMuted, icon: 'Ã°Å¸ÂÂ·Ã¯Â¸Â' },
+            { l: 'Total Withdrawn', v: fmt(withdrawn), c: C.gold, icon: '💸' },
+            { l: 'Platform Fees Paid', v: fmt(feesPaid), c: C.textMuted, icon: '🏷️' },
           ].map((s, i) => (
             <Card key={i}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
@@ -2159,7 +2159,7 @@ export default function App() {
           {showWithdraw && (
             <div style={{ marginTop: 20, padding: 20, background: C.bg, borderRadius: 12 }}>
               <div style={{ padding: '10px 14px', background: '#fff8e1', borderRadius: 8, marginBottom: 14, border: '1px solid #ffe082', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                <span style={{ fontSize: 14, flexShrink: 0 }}>Ã¢â€žÂ¹Ã¯Â¸Â</span>
+                <span style={{ fontSize: 14, flexShrink: 0 }}>ℹ️</span>
                 <span style={{ fontSize: 12, color: '#6d5600', lineHeight: 1.5 }}>Payouts are processed manually. After submitting, you will receive the funds to your mobile money within 24 hours. You'll see the status update once payment is confirmed.</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -2194,11 +2194,11 @@ export default function App() {
           )}
         </Card>
 
-        {/* Pending Payouts Ã¢â‚¬â€ Status View (read-only for studio owners) */}
+        {/* Pending Payouts — Status View (read-only for studio owners) */}
         {wds.filter(w => w.status === 'pending' || w.status === 'processing').length > 0 && (
           <Card style={{ marginBottom: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <span style={{ fontSize: 20 }}>Ã¢ÂÂ³</span>
+              <span style={{ fontSize: 20 }}>⏳</span>
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.text }}>Pending Payouts</h3>
             </div>
             <p style={{ margin: '0 0 16px', fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>
@@ -2213,7 +2213,7 @@ export default function App() {
                     {wd.withdraw_to_name && <div style={{ fontSize: 12, color: C.textMuted }}>{wd.withdraw_to_name}</div>}
                     <div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>Requested {new Date(wd.created_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                   </div>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '6px 14px', borderRadius: 20, background: '#fff3e0', color: '#e65100', textTransform: 'uppercase' }}>Ã¢ÂÂ³ Awaiting Payment</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '6px 14px', borderRadius: 20, background: '#fff3e0', color: '#e65100', textTransform: 'uppercase' }}>⏳ Awaiting Payment</span>
                 </div>
               </div>
             ))}
@@ -2232,7 +2232,7 @@ export default function App() {
                     <td style={{ padding: '10px 8px' }}><span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 10, background: t.type === 'credit' ? C.successBg : t.type === 'withdrawal' ? '#fff3e0' : C.dangerBg, color: t.type === 'credit' ? C.success : t.type === 'withdrawal' ? '#e65100' : C.danger, textTransform: 'uppercase' }}>{t.type}</span></td>
                     <td style={{ padding: '10px 8px', fontWeight: 700, color: t.type === 'credit' ? C.success : C.danger }}>{t.type === 'credit' ? '+' : '-'}{fmt(t.amount)}</td>
                     <td style={{ padding: '10px 8px', fontWeight: 600 }}>{fmt(t.balance_after)}</td>
-                    <td style={{ padding: '10px 8px', fontSize: 12, color: C.textMuted, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description || 'Ã¢â‚¬â€'}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 12, color: C.textMuted, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description || '—'}</td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -2251,8 +2251,8 @@ export default function App() {
                     <td style={{ padding: '10px 8px', fontSize: 12 }}>{new Date(wd.created_at).toLocaleDateString('en-ZM', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                     <td style={{ padding: '10px 8px', fontWeight: 700 }}>{fmt(wd.amount)}</td>
                     <td style={{ padding: '10px 8px' }}>{wd.withdraw_to_phone}</td>
-                    <td style={{ padding: '10px 8px', textTransform: 'uppercase', fontSize: 12, fontWeight: 600 }}>{wd.network || 'Ã¢â‚¬â€'}</td>
-                    <td style={{ padding: '10px 8px' }}><span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 10, background: wd.status === 'completed' ? C.successBg : wd.status === 'failed' || wd.status === 'rejected' ? C.dangerBg : C.pendingBg, color: wd.status === 'completed' ? C.success : wd.status === 'failed' || wd.status === 'rejected' ? C.danger : C.pending, textTransform: 'uppercase' }}>{wd.status === 'completed' ? 'Paid Ã¢Å“â€œ' : wd.status}</span></td>
+                    <td style={{ padding: '10px 8px', textTransform: 'uppercase', fontSize: 12, fontWeight: 600 }}>{wd.network || '—'}</td>
+                    <td style={{ padding: '10px 8px' }}><span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 10, background: wd.status === 'completed' ? C.successBg : wd.status === 'failed' || wd.status === 'rejected' ? C.dangerBg : C.pendingBg, color: wd.status === 'completed' ? C.success : wd.status === 'failed' || wd.status === 'rejected' ? C.danger : C.pending, textTransform: 'uppercase' }}>{wd.status === 'completed' ? 'Paid ✓' : wd.status}</span></td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -2263,19 +2263,19 @@ export default function App() {
     )
   }
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â LAYOUT Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ═════ LAYOUT ═════
   const VIEWS = { dashboard: DashboardView, bookings: BookingsView, schedule: ScheduleView, staff: StaffView, services: ServicesView, clients: ClientsView, reviews: ReviewsView, financials: FinancialsView, wallet: WalletView, profile: ProfileView }
   const View = VIEWS[page] || DashboardView
   const title = NAV.find(n => n.id === page)?.label || 'Dashboard'
 
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â AUTH GATE Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // ═══ AUTH GATE ═══
   if (!authChecked) return (
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ textAlign: 'center', color: C.textMuted }}><div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Icon name="refresh" size={32} color={C.textMuted} /></div><div style={{ fontSize: 14 }}>LoadingÃ¢â‚¬Â¦</div></div>
+      <div style={{ textAlign: 'center', color: C.textMuted }}><div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Icon name="refresh" size={32} color={C.textMuted} /></div><div style={{ fontSize: 14 }}>Loading…</div></div>
     </div>
   )
 
-  // Password recovery Ã¢â‚¬â€ must render before other guards
+  // Password recovery — must render before other guards
   if (showResetPassword) return (
     <>
       <style>{`* { margin: 0; padding: 0; box-sizing: border-box; } body { background: ${C.bg}; } input:focus { border-color: ${C.accent} !important; box-shadow: 0 0 0 3px rgba(196,125,90,0.15); }`}</style>
@@ -2301,7 +2301,7 @@ export default function App() {
 
   if (!branchId) return (
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ textAlign: 'center', color: C.textMuted }}><div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Icon name="refresh" size={32} color={C.textMuted} /></div><div style={{ fontSize: 14 }}>Loading branchÃ¢â‚¬Â¦</div></div>
+      <div style={{ textAlign: 'center', color: C.textMuted }}><div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Icon name="refresh" size={32} color={C.textMuted} /></div><div style={{ fontSize: 14 }}>Loading branch…</div></div>
     </div>
   )
 
@@ -2346,7 +2346,7 @@ tr { transition: background .15s ease; } tr:hover { background: ${C.bg}; }
 `}</style>
 
       {/* Offline Banner */}
-      {isOffline && <div role="alert" style={{position:'fixed',top:0,left:0,right:0,zIndex:2100,background:'#c62828',color:'#fff',textAlign:'center',padding:'8px 16px',fontSize:13,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="alert" size={14} color="#fff"/>You're offline Ã¢â‚¬â€ check your connection</div>}
+      {isOffline && <div role="alert" style={{position:'fixed',top:0,left:0,right:0,zIndex:2100,background:'#c62828',color:'#fff',textAlign:'center',padding:'8px 16px',fontSize:13,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Icon name="alert" size={14} color="#fff"/>You're offline — check your connection</div>}
 
       {/* Mobile/Tablet Drawer Overlay */}
       {bp !== 'desktop' && sidebarOpen && (
@@ -2407,7 +2407,7 @@ tr { transition: background .15s ease; } tr:hover { background: ${C.bg}; }
                 <Icon name="menu" size={24} color={C.text} />
               </button>
             )}
-            <div><h1 style={{ margin: 0, fontSize: bp === 'desktop' ? 22 : 18, fontFamily: 'Fraunces', fontWeight: 600, color: C.text }}>{title}</h1><p style={{ margin: 0, fontSize: 12, color: C.textMuted, display: bp === 'mobile' ? 'none' : 'block' }}>{branch?.name || 'LoadingÃ¢â‚¬Â¦'} Ã¢â‚¬Â¢ {new Date().toLocaleDateString('en-ZM', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
+            <div><h1 style={{ margin: 0, fontSize: bp === 'desktop' ? 22 : 18, fontFamily: 'Fraunces', fontWeight: 600, color: C.text }}>{title}</h1><p style={{ margin: 0, fontSize: 12, color: C.textMuted, display: bp === 'mobile' ? 'none' : 'block' }}>{branch?.name || 'Loading…'} • {new Date().toLocaleDateString('en-ZM', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             {unreplied.length > 0 && <button onClick={() => setPage('reviews')} style={{ padding: '6px 14px', borderRadius: 20, background: C.roseLight, border: 'none', color: C.rose, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans', minHeight: 36, display: bp === 'mobile' ? 'none' : 'inline-flex', alignItems: 'center' }}>{unreplied.length} unreplied</button>}
@@ -2426,7 +2426,7 @@ tr { transition: background .15s ease; } tr:hover { background: ${C.bg}; }
       </div>
 
       <ModalRouter />
-      {toast && <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 2000, padding: '12px 20px', borderRadius: 10, background: toast.type === 'error' ? C.danger : C.success, color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', animation: 'slideIn 0.3s ease', maxWidth: '90vw' }}>{toast.type === 'error' ? 'Ã¢Å“â€¢ ' : 'Ã¢Å“â€œ '}{toast.msg}</div>}
+      {toast && <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 2000, padding: '12px 20px', borderRadius: 10, background: toast.type === 'error' ? C.danger : C.success, color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', animation: 'slideIn 0.3s ease', maxWidth: '90vw' }}>{toast.type === 'error' ? '✕ ' : '✓ '}{toast.msg}</div>}
     </div>
   )
 }
