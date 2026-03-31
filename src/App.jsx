@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useId } from 'react'
-import { supabase } from './supabase'
+import { supabase } from './lib/supabase'
 import { LayoutDashboard, Calendar, Clock, Users, Scissors, User, Star, DollarSign, Home, Menu, X, Search, Check, Plus, Pencil, Trash2, Eye, UserPlus, XCircle, Bell, ArrowLeft, ChevronRight, ChevronDown, LogOut, Upload, Phone, MapPin, Mail, Sparkles, Gift, TrendingUp, RefreshCw, Camera, Filter, Wallet, AlertCircle } from 'lucide-react'
 
 function useBreakpoint() {
@@ -87,9 +87,9 @@ function Btn({ children, variant = 'primary', small, onClick, disabled, style = 
   return <button onClick={onClick} disabled={disabled} className="btn-hover" style={{ ...v[variant], padding: small ? '5px 12px' : '8px 18px', borderRadius: 8, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', opacity: disabled ? 0.5 : 1, transition: 'all 0.15s cubic-bezier(.16,1,.3,1)', whiteSpace: 'nowrap', ...style }}>{children}</button>
 }
 
-function Card({ children, title, action, style = {} }) {
+function Card({ children, title, action, style = {}, onClick }) {
   return (
-    <div className="card-hover" style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 24, ...style }}>
+    <div className="card-hover" onClick={onClick} style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 24, cursor: onClick ? 'pointer' : 'default', ...style }}>
       {(title || action) && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>{title && <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: C.text, fontFamily: 'Fraunces' }}>{title}</h3>}{action}</div>}
       {children}
     </div>
