@@ -1156,6 +1156,7 @@ export default function App() {
     showToast('Service status updated'); fetchAll()
   }
   const deleteService = async (id) => {
+    await supabase.from('bookings').update({ service_id: null }).eq('service_id', id).in('status', ['cancelled', 'completed', 'no_show'])
     await supabase.from('service_addons').delete().eq('service_id', id)
     const { error } = await supabase.from('services').delete().eq('id', id)
     if (error) { showToast(friendlyError(error.message), 'error'); return }
