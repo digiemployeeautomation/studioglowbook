@@ -1155,6 +1155,12 @@ export default function App() {
     if (error) { showToast(friendlyError(error.message), 'error'); return }
     showToast('Service status updated'); fetchAll()
   }
+  const deleteService = async (id) => {
+    await supabase.from('service_addons').delete().eq('service_id', id)
+    const { error } = await supabase.from('services').delete().eq('id', id)
+    if (error) { showToast(friendlyError(error.message), 'error'); return }
+    showToast('Service deleted'); fetchAll()
+  }
   const toggleStaffActive = async (id, active) => {
     const { error } = await supabase.from('staff').update({ is_active: !active, updated_at: new Date().toISOString() }).eq('id', id)
     if (error) { showToast(friendlyError(error.message), 'error'); return }
@@ -1645,7 +1651,7 @@ export default function App() {
                 const sAddons = getAddons(s.id)
                 const thumb = s.images?.[0]
                 return (
-                  <Card key={s.id} style={{ position: 'relative', cursor: 'pointer', overflow: 'hidden' }} onClick={() => setModal({ type: 'editService', service: s })}>
+                  <Card key={s.id} style={{ position: 'relative', overflow: 'hidden' }}>
                     {thumb && <img src={thumb} alt="" style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 10, marginBottom: 10 }} />}
                     {s.images?.length > 1 && <div style={{ position: 'absolute', top: thumb ? 102 : 8, right: 12, background: 'rgba(0,0,0,.6)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10 }}>+{s.images.length - 1} more</div>}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
@@ -1656,9 +1662,11 @@ export default function App() {
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 6 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: C.gold, padding: '3px 8px', borderRadius: 8, background: C.goldLight }}>Deposit: K{s.deposit_amount || branch?.default_deposit || 100}</div>
                       {sAddons.length > 0 && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent, padding: '3px 8px', borderRadius: 8, background: C.accentLight }}>{sAddons.length} add-on{sAddons.length > 1 ? 's' : ''}</div>}
-                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => toggleServiceActive(s.id, s.is_active)} style={{ background: s.is_active ? C.successBg : C.dangerBg, border: 'none', color: s.is_active ? C.success : C.danger, borderRadius: 6, padding: '4px 8px', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>{s.is_active ? 'Active' : 'Inactive'}</button>
-                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+                      <button onClick={() => toggleServiceActive(s.id, s.is_active)} style={{ background: s.is_active ? C.successBg : C.dangerBg, border: 'none', color: s.is_active ? C.success : C.danger, borderRadius: 6, padding: '4px 8px', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>{s.is_active ? 'Active' : 'Inactive'}</button>
+                      <button onClick={() => setModal({ type: 'editService', service: s })} style={{ background: C.pendingBg, border: 'none', color: C.pending, borderRadius: 6, padding: '4px 8px', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Edit Service</button>
+                      <button onClick={() => { if (window.confirm(`Delete "${s.name}"? This cannot be undone.`)) deleteService(s.id) }} style={{ background: C.dangerBg, border: 'none', color: C.danger, borderRadius: 6, padding: '4px 8px', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>Delete</button>
                     </div>
                     <span style={{ position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: '50%', background: s.is_active ? C.success : C.danger }} />
                   </Card>
