@@ -1661,7 +1661,7 @@ export default function App() {
                     </div>
                     {s.description && <p style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.4, margin: '6px 0' }}>{s.description}</p>}
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 6 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: C.gold, padding: '3px 8px', borderRadius: 8, background: C.goldLight }}>Deposit: K{s.deposit_amount || branch?.default_deposit || 100}</div>
+                      {s.deposit_amount != null && <div style={{ fontSize: 11, fontWeight: 600, color: C.gold, padding: '3px 8px', borderRadius: 8, background: C.goldLight }}>Deposit: K{s.deposit_amount}</div>}
                       {sAddons.length > 0 && <div style={{ fontSize: 11, fontWeight: 600, color: C.accent, padding: '3px 8px', borderRadius: 8, background: C.accentLight }}>{sAddons.length} add-on{sAddons.length > 1 ? 's' : ''}</div>}
                     </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
